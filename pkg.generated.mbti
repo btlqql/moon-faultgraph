@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "november/moon_faultgraph"
+package "btlqql/moon_faultgraph"
 
 // Values
 pub fn compile(Array[Gate], Int, node_limit? : Int) -> FaultGraph raise GraphError
