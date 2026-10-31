@@ -1,30 +1,54 @@
 # MoonFaultGraph
 
-对共享基础事件的Boolean故障图进行概率分析。复核更新0.2.0，模块名november/moon_faultgraph为本地开发命名空间，未发布。
+共享事件Boolean故障图与冗余架构分析，主要业务机制由MoonBit实现，Apache-2.0。
 
-最容易出错的情况是多个分支引用同一个电源/设备：同一事件不能按独立副本重复计算。本库将同一个变量编号的每次出现编译成同一Boolean变量，通过ROBDD计算顶事件概率。不同变量仍必须统计独立；这不是任意相关概率模型。
+当冗余分支共用同一电源或服务依赖时，保持事件身份，计算故障概率、最小割集、条件结果与单事件修复效果。
 
-已实现有序DAG校验、AND/OR/NOT/k-of-n门、唯一表、归约、Apply缓存、概率和有符号Birnbaum重要度。compile接收按拓扑顺序排列的Gate，引用只能指向前面的Gate；最后一个Gate是顶事件。Event(n)指向probabilities[n]。投票按输入位置计数，重复输入共享变量身份，因此vote(2,[A,A])等价于A。完整API见pkg.generated.mbti。
+## 可运行任务
 
-```powershell
-moon run cmd/main --target js -- examples/shared-power.json
-moon test --target wasm-gc --deny-warn
+```sh
+moon run cmd/main --target js -- examples/uncertainty-and-repair.json
+moon run cmd/main --target js -- examples/shared-power-diagnosis.json
 ```
 
-示例：(A AND B) OR (A AND C)，基础概率[0.1,0.2,0.3]，结果0.044，A的重要度0.44；错误独立分支公式会给0.0494。它是自制冗余系统模型，不是部署数据。CLI的ok表示计算成功，不代表模型安全或风险可接受。错误退出1。
+(A AND B) OR (A AND C)在p=(0.1,0.2,0.3)时概率0.044；区间上端(0.2,0.3,0.4)给0.116。使共享A不发生后剩余顶事件概率为0。
 
-概率使用Double，Boolean逻辑精确表示不等于任意精度概率数值；无稀有事件近似。含NOT时重要度允许为负。最多128个变量、4096个门，默认100,000个分配BDD节点，硬上限1,000,000；Apply缓存最多为节点预算的8倍。变量顺序固定为编号顺序，某些结构会指数膨胀并明确报ResourceLimit，不能用规模限制冒充任意模型可扩展。node_count包括终端与编译中间节点，不是可达最终图节点数。
+range.lower/upper指定独立基础事件概率上下端点；mitigations=true输出逐事件修复。diagnose=true可输出完整正事件割集与observations条件结果。
 
-当前不支持动态故障树、共同原因参数估计、文件内命名引用或SCRAM格式互操作。
+CLI读取JSON文件，ok表示计算执行成功；领域可行性、超时或削波需读取各自字段。Node只读写文件、设置退出码和封装PCM；核心算法不转发给Python/C或外部服务。
 
-wcx789ll/moon-reliability已经有基础故障树及网络可靠性API；本项目不将故障树称为生态空白。当前独立核验的增量是共享变量的通用Boolean DAG编译与概率求值，详见上级制作总方案和evidence中的对照接口。
+## 可复用接口与安装
 
-开发对照使用60组随机模型的独立真值表穷举，包括重复变量、否定及投票；运行上级verify.py，证据在../../evidence/validation.json。参考[SCRAM的BDD分析说明](https://github.com/rakhimov/scram/blob/develop/doc/probability_analysis.rst)，未复制或链接其GPL源码。Apache-2.0，AI辅助实现。
+```sh
+moon add btlqql/moon_faultgraph@0.3.0
+```
 
-## 0.2.0复核增量
+在moon.pkg导入`"btlqql/moon_faultgraph" @core`；完整签名见[pkg.generated.mbti](pkg.generated.mbti)。
 
-新增语法上无NOT的单调模型最小割集，保留共享事件身份，做子集吸收。默认最多256个割集，硬上限1024；节点超过10000或中间割集超预算会报ResourceLimit，不返回未标记截断结果。割集仅解释结构，不能把交叠割集概率直接求和。
+ROBDD唯一表、归约与Apply缓存，AND/OR/NOT/投票门，概率、有符号重要度、正事件最小割集、条件证据、单调概率区间及单事件修复情景。
 
-`conditioned_probability`接受-1未知、0未发生、1发生的基础事件观测；独立基础变量模型下进行条件求值，零概率证据拒绝。公共API支持非单调模型的条件分析；CLI diagnose=true同时求割集，因此仅接受无NOT模型。
+## 验证
 
-运行`moon run cmd/main --target js -- examples/shared-power-diagnosis.json`：得到割集{A,B}和{A,C}；观测A发生后条件顶事件概率为0.44。
+```sh
+moon check --target all --deny-warn
+moon test --target js --deny-warn
+moon test --target wasm --deny-warn
+moon test --target wasm-gc --deny-warn
+python scripts/verify.py
+```
+
+当前8项MoonBit测试。独立开发对照：64组Boolean真值表模型，其中40组同时枚举最小割集、区间端点及单事件修复结果。
+
+脚本只需要Python标准库、Node与MoonBit；可用MOON_BIN指定moon路径。产物保存在本仓库_build/oracle，脚本不下载外部库，不访问相邻工作区。CI覆盖JS/Wasm/Wasm-GC/native，实际运行状态见[Actions](https://github.com/btlqql/moon-faultgraph/actions)。本地验证和公共CI结论分别记录，不用静态检查冒称native运行。
+
+## 实现边界与来源
+
+不同基础变量必须统计独立；重复变量是同一事件。割集/区间/修复仅接受语法无NOT的单调模型。区间是参数范围，不是置信区间。单事件修复结果不可相加推断组合修复。未实现动态故障树、任意相关联合分布或故障率估计。
+
+对照详见[ECOSYSTEM](docs/ECOSYSTEM.md)，归属见[THIRD_PARTY](THIRD_PARTY.md)。实例是软件模型或合成输入，不是生产部署证明。
+
+## 申报与开发记录
+
+[完整版Markdown申报书](docs/proposal.md) | [一页Markdown摘要](docs/proposal-summary.md) | [实际提交历史](https://github.com/btlqql/moon-faultgraph/commits/main/)
+
+版本0.3.0。GitHub提交保留真实时间与每次文件变化；不以数量替代独立价值和实际质量。十一月规则尚未从公开页面完整确认，开源发布不等于比赛报名或验收通过。

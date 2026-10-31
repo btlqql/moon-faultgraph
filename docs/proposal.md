@@ -2,15 +2,15 @@
 
 面向共享依赖和冗余架构的Boolean故障图分析工具
 
-版本：0.2.0（本地） | 主要语言：MoonBit | 许可：Apache-2.0 | 日期：2026-10-31
+版本：0.3.0 | 主要语言：MoonBit | 许可：Apache-2.0 | 日期：2026-10-31
 
-申报人及团队信息由本人填写；本轮未确认。当前未创建公开仓库或发布公共包。
+GitHub账号：btlqql；项目仓库：https://github.com/btlqql/moon-faultgraph；公共模块：btlqql/moon_faultgraph@0.3.0。团队身份按本人报名信息填写。
 
 ## 一、项目名称与摘要
 
 MoonFaultGraph用MoonBit将共享基础事件的Boolean故障图编译为归约有序二叉决策图（ROBDD），计算顶事件概率、基础事件重要度及条件结果。一个事件在多个分支出现时保留同一身份，避免把共用电源或依赖错误计算成多个独立副本。
 
-0.2.0增加无NOT门的单调模型最小割集、显式资源失败、基础事件观测条件分析，并接入文件CLI。输入包含基础事件概率与拓扑有序门定义，输出概率、重要度、分配节点数和可选结构解释。
+0.3.0增加无NOT门的单调模型最小割集、显式资源失败、基础事件观测条件分析，并接入文件CLI。输入包含基础事件概率与拓扑有序门定义，输出概率、重要度、分配节点数和可选结构解释。
 
 ## 二、选题背景与实际使用场景
 
@@ -36,6 +36,8 @@ mk以(variable,low,high)为唯一键；高低子图相等时消除冗余节点�
 
 最小割集沿BDD分支构造正事件集合，以子集吸收去掉超集。当前只接受语法上无NOT的模型。默认限256个割集，硬上限1024、分配节点至多10000；中间结果超过预算就报ResourceLimit，不返回未标记的部分割集。
 
+新增probability_range与mitigations接口及CLI。只在单调模型中按独立基础概率端点求范围；每个修复情景独立将一个基础事件置0，给出剩余概率和减少量。
+
 ## 五、与相关能力的区别及独立贡献
 
 MoonBit已有moon-reliability，公共接口包括fault_tree_and、fault_tree_or、minimal_cut_set_probability及网络可靠性等。本项目不把“故障树”整体称为生态空白。此次核对的增量是共享事件任意Boolean DAG的ROBDD编译、精确逻辑求值及同一图上的诊断流程。
@@ -50,13 +52,17 @@ MoonBit已有moon-reliability，公共接口包括fault_tree_and、fault_tree_or
 
 投票门按输入位置计票，但重复位置引用同一变量，因此Vote(2,[A,A])等价于A，不是A平方。引用未知/后续门、概率越界、矛盾零概率证据与资源超限均明确失败。运行：moon run cmd/main --target js -- examples/shared-power-diagnosis.json。
 
+新增可复现文件：examples/uncertainty-and-repair.json。(A AND B) OR (A AND C)在p=(0.1,0.2,0.3)时概率0.044；区间上端(0.2,0.3,0.4)给0.116。使共享A不发生后剩余顶事件概率为0。
+
 ## 七、正确性验证与独立参考
 
-当前5项MoonBit测试，在JS、Wasm、Wasm-GC分别通过，共15次测试执行；全目标核心静态检查与JS CLI构建通过。覆盖共享事件、NOT、投票、重复投票、负重要度、循环/前向引用拒绝、概率与节点限额、割集及不可能证据。
+当前8项MoonBit测试，在JS、Wasm、Wasm-GC分别通过，共24次本地测试执行；全目标核心静态检查与JS CLI构建通过。覆盖共享事件、NOT、投票、重复投票、负重要度、循环/前向引用拒绝、概率与节点限额、割集及不可能证据。
 
 基础独立对照生成60组Boolean模型，通过Python真值表枚举核对概率和全部变量重要度。复核新增40组单调模型，枚举全部变量赋值，再逐一去掉真变量判断是否最小，从而核对完整割集；条件概率也以独立赋值枚举核对。
 
 固定种子与原始结果见verify.py、review_verify.py和evidence中的两份validation JSON。穷举对照不证明任意规模模型可扩展，压力范围与资源上限分开陈述。
+
+仓库内scripts/verify.py独立验证：64组Boolean真值表模型，其中40组同时枚举最小割集、区间端点及单事件修复结果。无需父目录或原工作区。
 
 ## 八、公开接口、使用与当前边界
 
@@ -64,14 +70,11 @@ MoonBit已有moon-reliability，公共接口包括fault_tree_and、fault_tree_or
 
 不同基础事件统计独立是必要前提。共享共同原因可通过同一基础变量显式表达，但没有估计任意相关联合分布或共同原因参数。动态故障树、时间相依故障率、维修过程及SCRAM格式互操作未实现。固定变量顺序下BDD可能指数增长，资源失败不能解释为概率为0或模型不可发生。
 
-## 九、交付内容与验证证据
+## 九、公开交付与复现入口
 
-交付含MoonBit核心与API文件、JSON CLI、共享电源和条件分析示例、5项测试、README、Apache-2.0许可及来源说明。november/moon_faultgraph@0.2.0为本地开发模块；新公开仓库、公共包、公共CI及本轮报名均未完成。
+- GitHub仓库：[https://github.com/btlqql/moon-faultgraph](https://github.com/btlqql/moon-faultgraph)。
+- MoonCakes模块：[btlqql/moon_faultgraph@0.3.0](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.3.0)。
+- 主要代码与测试、README、独立验证脚本、来源许可、JSON示例、生成API均在同一仓库。
+- [公共CI](https://github.com/btlqql/moon-faultgraph/actions)包含四后端测试，实际完成状态与安装验证记录在发布核验报告，不预写未发生的运行结论。
 
-代码基线与独立对照随资料提供。AI辅助开发，参赛者需解释独立性假设、共享变量语义、资源边界与割集用途。当前结果是软件分析证据，不是主办方资格确认或工程安全证明。
-
-## 代码与材料状态
-
-已验证代码基线：a21616abd5f29bce299ebe9ab219c91529b841b7
-
-代码目录：projects/moon-faultgraph。当前为申报参考材料，不是报名或验收回执。十一月细则尚未从公开官网确认。
+GitHub开发历史、公共包发布与比赛报名是不同事项。本项目为AI辅助开发，参赛者负责理解模型、取舍和质量。未代填比赛报名，也没有主办方通过回执。
