@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "november/moon_faultgraph"
+
+// Values
+pub fn compile(Array[Gate], Int, node_limit? : Int) -> FaultGraph raise GraphError
+
+// Errors
+pub(all) suberror GraphError {
+  InvalidGraph
+  InvalidProbability
+  ResourceLimit
+}
+
+// Types and methods
+pub struct FaultGraph {
+  nodes : Array[Node]
+  root : Int
+  variables : Int
+}
+pub fn FaultGraph::importance(Self, Array[Double]) -> Array[Double] raise GraphError
+pub fn FaultGraph::node_count(Self) -> Int
+pub fn FaultGraph::probability(Self, Array[Double]) -> Double raise GraphError
+
+pub(all) enum Gate {
+  Event(Int)
+  And(Int, Int)
+  Or(Int, Int)
+  Not(Int)
+  Vote(Int, Array[Int])
+}
+
+type Node
+
+// Type aliases
+
+// Traits
