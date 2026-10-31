@@ -21,8 +21,10 @@ pub struct FaultGraph {
 pub fn FaultGraph::conditioned_probability(Self, Array[Double], Array[Int]) -> Double raise GraphError
 pub fn FaultGraph::importance(Self, Array[Double]) -> Array[Double] raise GraphError
 pub fn FaultGraph::minimal_cut_sets(Self, limit? : Int) -> Array[Array[Int]] raise GraphError
+pub fn FaultGraph::mitigations(Self, Array[Double]) -> Array[Mitigation] raise GraphError
 pub fn FaultGraph::node_count(Self) -> Int
 pub fn FaultGraph::probability(Self, Array[Double]) -> Double raise GraphError
+pub fn FaultGraph::probability_range(Self, Array[Double], Array[Double]) -> ProbabilityRange raise GraphError
 
 pub(all) enum Gate {
   Event(Int)
@@ -32,7 +34,18 @@ pub(all) enum Gate {
   Vote(Int, Array[Int])
 }
 
+pub(all) struct Mitigation {
+  event : Int
+  reduction : Double
+  remaining_probability : Double
+}
+
 type Node
+
+pub(all) struct ProbabilityRange {
+  lower : Double
+  upper : Double
+}
 
 // Type aliases
 
