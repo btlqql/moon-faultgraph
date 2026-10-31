@@ -66,7 +66,7 @@ MoonBit已有moon-reliability，公共接口包括fault_tree_and、fault_tree_or
 
 ## 八、公开接口、使用与当前边界
 
-公共接口包括Gate、compile、FaultGraph::probability、importance、minimal_cut_sets、conditioned_probability与node_count。API可被MoonBit应用调用，JSON CLI负责文件复现。diagnose=true的CLI同时生成割集，因此当前仅接受无NOT模型；非单调条件分析可直接使用公共API。
+公共接口包括Gate、compile、FaultGraph::probability、importance、minimal_cut_sets、conditioned_probability、probability_range、mitigations与node_count。API可被MoonBit应用调用，JSON CLI负责文件复现。diagnose=true的CLI同时生成割集，因此当前仅接受无NOT模型；非单调条件分析可直接使用公共API。
 
 不同基础事件统计独立是必要前提。共享共同原因可通过同一基础变量显式表达，但没有估计任意相关联合分布或共同原因参数。动态故障树、时间相依故障率、维修过程及SCRAM格式互操作未实现。固定变量顺序下BDD可能指数增长，资源失败不能解释为概率为0或模型不可发生。
 
@@ -78,3 +78,7 @@ MoonBit已有moon-reliability，公共接口包括fault_tree_and、fault_tree_or
 - [公共CI](https://github.com/btlqql/moon-faultgraph/actions)包含四后端测试，实际完成状态与安装验证记录在发布核验报告，不预写未发生的运行结论。
 
 GitHub开发历史、公共包发布与比赛报名是不同事项。本项目为AI辅助开发，参赛者负责理解模型、取舍和质量。未代填比赛报名，也没有主办方通过回执。
+
+## 当前公共验证基线
+
+已验证代码提交：09336860b6784c2a851866eccf57b303e1ad1271；[四后端CI](https://github.com/btlqql/moon-faultgraph/actions/runs/41198974782)已实际完成。三个纯核心可在四后端测试，文件CLI为JS宿主。注册表发布和独立安装状态以配套发布核验记录为准。
