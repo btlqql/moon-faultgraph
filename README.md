@@ -1,6 +1,6 @@
 # MoonFaultGraph
 
-对共享基础事件的Boolean故障图进行概率分析。首批实现，模块名november/moon_faultgraph为本地开发命名空间，未发布。
+对共享基础事件的Boolean故障图进行概率分析。复核更新0.2.0，模块名november/moon_faultgraph为本地开发命名空间，未发布。
 
 最容易出错的情况是多个分支引用同一个电源/设备：同一事件不能按独立副本重复计算。本库将同一个变量编号的每次出现编译成同一Boolean变量，通过ROBDD计算顶事件概率。不同变量仍必须统计独立；这不是任意相关概率模型。
 
@@ -15,8 +15,16 @@ moon test --target wasm-gc --deny-warn
 
 概率使用Double，Boolean逻辑精确表示不等于任意精度概率数值；无稀有事件近似。含NOT时重要度允许为负。最多128个变量、4096个门，默认100,000个分配BDD节点，硬上限1,000,000；Apply缓存最多为节点预算的8倍。变量顺序固定为编号顺序，某些结构会指数膨胀并明确报ResourceLimit，不能用规模限制冒充任意模型可扩展。node_count包括终端与编译中间节点，不是可达最终图节点数。
 
-尚未实现最小割集、动态故障树、共同原因参数估计、文件内命名引用或SCRAM格式互操作。
+当前不支持动态故障树、共同原因参数估计、文件内命名引用或SCRAM格式互操作。
 
 wcx789ll/moon-reliability已经有基础故障树及网络可靠性API；本项目不将故障树称为生态空白。当前独立核验的增量是共享变量的通用Boolean DAG编译与概率求值，详见上级制作总方案和evidence中的对照接口。
 
 开发对照使用60组随机模型的独立真值表穷举，包括重复变量、否定及投票；运行上级verify.py，证据在../../evidence/validation.json。参考[SCRAM的BDD分析说明](https://github.com/rakhimov/scram/blob/develop/doc/probability_analysis.rst)，未复制或链接其GPL源码。Apache-2.0，AI辅助实现。
+
+## 0.2.0复核增量
+
+新增语法上无NOT的单调模型最小割集，保留共享事件身份，做子集吸收。默认最多256个割集，硬上限1024；节点超过10000或中间割集超预算会报ResourceLimit，不返回未标记截断结果。割集仅解释结构，不能把交叠割集概率直接求和。
+
+`conditioned_probability`接受-1未知、0未发生、1发生的基础事件观测；独立基础变量模型下进行条件求值，零概率证据拒绝。公共API支持非单调模型的条件分析；CLI diagnose=true同时求割集，因此仅接受无NOT模型。
+
+运行`moon run cmd/main --target js -- examples/shared-power-diagnosis.json`：得到割集{A,B}和{A,C}；观测A发生后条件顶事件概率为0.44。

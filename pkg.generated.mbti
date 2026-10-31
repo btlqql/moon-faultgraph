@@ -16,8 +16,11 @@ pub struct FaultGraph {
   nodes : Array[Node]
   root : Int
   variables : Int
+  coherent : Bool
 }
+pub fn FaultGraph::conditioned_probability(Self, Array[Double], Array[Int]) -> Double raise GraphError
 pub fn FaultGraph::importance(Self, Array[Double]) -> Array[Double] raise GraphError
+pub fn FaultGraph::minimal_cut_sets(Self, limit? : Int) -> Array[Array[Int]] raise GraphError
 pub fn FaultGraph::node_count(Self) -> Int
 pub fn FaultGraph::probability(Self, Array[Double]) -> Double raise GraphError
 

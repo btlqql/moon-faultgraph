@@ -29,6 +29,7 @@ pub struct FaultGraph {
   nodes : Array[Node]
   root : Int32
   variables : Int32
+  coherent : Bool
 }
 
 ///|
@@ -191,7 +192,12 @@ pub fn compile(
     }
     roots.push(id)
   }
-  { nodes: b.nodes, root: roots[roots.length() - 1], variables, }
+  {
+    nodes: b.nodes,
+    root: roots[roots.length() - 1],
+    variables,
+    coherent: !gates.any(fn(g) { g is Not(_) }),
+  }
 }
 
 ///|

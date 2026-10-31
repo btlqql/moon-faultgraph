@@ -102,10 +102,30 @@ fn execute(j : Json) -> Json raise {
     gates.push(gate)
   }
   let graph = @core.compile(gates, probabilities.length())
+  let diagnosis = if j is Object(fields) && fields.get("diagnose") is Some(True) {
+    let cutsets = graph.minimal_cut_sets()
+    let conditional = match fields.get("observations") {
+      None => Json::null()
+      Some(values) =>
+        Json(
+          graph.conditioned_probability(
+            probabilities,
+            arr(values).map(fn(x) raise { integer(x) }),
+          ),
+        )
+    }
+    Json::object({
+      "minimal_cut_sets": Json(cutsets),
+      "conditional_probability": conditional,
+    })
+  } else {
+    Json::null()
+  }
   Json::object({
     "ok": Json(true),
     "probability": Json(graph.probability(probabilities)),
     "importance": Json(graph.importance(probabilities)),
     "allocated_nodes": Json(graph.node_count()),
+    "diagnosis": diagnosis,
   })
 }
