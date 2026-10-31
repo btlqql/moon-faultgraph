@@ -121,11 +121,38 @@ fn execute(j : Json) -> Json raise {
   } else {
     Json::null()
   }
+  let range = if j is Object(fields) && fields.get("range") is Some(r) {
+    let bound = graph.probability_range(
+      arr(field(r, "lower")).map(fn(x) raise { num(x) }),
+      arr(field(r, "upper")).map(fn(x) raise { num(x) }),
+    )
+    Json::object({ "lower": Json(bound.lower), "upper": Json(bound.upper) })
+  } else {
+    Json::null()
+  }
+  let mitigation = if j is Object(fields) &&
+    fields.get("mitigations") is Some(True) {
+    Json(
+      graph
+      .mitigations(probabilities)
+      .map(fn(m) {
+        Json::object({
+          "event": Json(m.event),
+          "reduction": Json(m.reduction),
+          "remaining_probability": Json(m.remaining_probability),
+        })
+      }),
+    )
+  } else {
+    Json::null()
+  }
   Json::object({
     "ok": Json(true),
     "probability": Json(graph.probability(probabilities)),
     "importance": Json(graph.importance(probabilities)),
     "allocated_nodes": Json(graph.node_count()),
     "diagnosis": diagnosis,
+    "range": range,
+    "mitigations": mitigation,
   })
 }
