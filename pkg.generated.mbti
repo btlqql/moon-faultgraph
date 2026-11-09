@@ -12,6 +12,16 @@ pub(all) suberror GraphError {
 }
 
 // Types and methods
+pub(all) struct EventImportance {
+  event : Int
+  forced_failed : Double
+  forced_working : Double
+  birnbaum : Double
+  fussell_vesely_dif : RiskRatio
+  raw : RiskRatio
+  rrw : RiskRatio
+}
+
 pub struct FaultGraph {
   nodes : Array[Node]
   root : Int
@@ -19,10 +29,12 @@ pub struct FaultGraph {
   coherent : Bool
 }
 pub fn FaultGraph::conditioned_probability(Self, Array[Double], Array[Int]) -> Double raise GraphError
+pub fn FaultGraph::event_importance(Self, Array[Double]) -> Array[EventImportance] raise GraphError
 pub fn FaultGraph::importance(Self, Array[Double]) -> Array[Double] raise GraphError
 pub fn FaultGraph::minimal_cut_sets(Self, limit? : Int) -> Array[Array[Int]] raise GraphError
 pub fn FaultGraph::mitigations(Self, Array[Double]) -> Array[Mitigation] raise GraphError
 pub fn FaultGraph::node_count(Self) -> Int
+pub fn FaultGraph::prime_implicants(Self, limit? : Int) -> Array[Array[Int]] raise GraphError
 pub fn FaultGraph::probability(Self, Array[Double]) -> Double raise GraphError
 pub fn FaultGraph::probability_range(Self, Array[Double], Array[Double]) -> ProbabilityRange raise GraphError
 
@@ -45,6 +57,12 @@ type Node
 pub(all) struct ProbabilityRange {
   lower : Double
   upper : Double
+}
+
+pub(all) enum RiskRatio {
+  Finite(Double)
+  Undefined
+  Unbounded
 }
 
 // Type aliases
