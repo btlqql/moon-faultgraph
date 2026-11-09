@@ -25,7 +25,7 @@ def moon_report(request, path):
     return json.loads(result.stdout)
 
 def scram_report(model, path):
-    subprocess.run([args.scram, "--bdd", "--prime-implicants", "--probability", "--importance",
+    subprocess.run([args.scram, "--bdd", "--prime-implicants", "--probability=true", "--importance=true",
                     "--output-path", str(path), str(model)], check=True, timeout=60)
     return ET.parse(path).getroot()
 
