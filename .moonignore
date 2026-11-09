@@ -1,3 +1,4 @@
 _build/
+.mooncakes/
 .git/
 scripts/_work/

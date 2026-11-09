@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE opsa-mef>
+<opsa-mef>
+  <define-fault-tree name="ModeSwitch">
+    <define-gate name="ServiceDown">
+      <or>
+        <and><not><basic-event name="AlternateMode"/></not><basic-event name="PrimaryDown"/></and>
+        <and><basic-event name="AlternateMode"/><basic-event name="AlternateDown"/></and>
+      </or>
+    </define-gate>
+  </define-fault-tree>
+  <model-data>
+    <define-basic-event name="AlternateMode"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="PrimaryDown"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="AlternateDown"><float value="0.03"/></define-basic-event>
+  </model-data>
+</opsa-mef>

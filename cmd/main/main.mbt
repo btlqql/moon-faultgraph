@@ -44,8 +44,15 @@ fn main {
     if args.length() < 3 {
       fail("usage: moon run cmd/main --target js -- request.json")
     }
-    let request = @json.parse(read_input(args[args.length() - 1]))
-    println(execute(request).stringify())
+    let path = args[args.length() - 1]
+    let request = @json.parse(read_input(path))
+    let result = if request is Object(fields) &&
+      fields.get("mef") is Some(String(model)) {
+      run_mef(request, path, model)
+    } else {
+      execute(request)
+    }
+    println(result.stringify())
   } catch {
     error => {
       println(
@@ -102,6 +109,14 @@ fn execute(j : Json) -> Json raise {
     gates.push(gate)
   }
   let graph = @core.compile(gates, probabilities.length())
+  let factors = graph.event_importance(probabilities)
+  let names = Array::makei(probabilities.length(), fn(i) { i.to_string() })
+  let prime_implicants = if j is Object(fields) &&
+    fields.get("prime_implicants") is Some(True) {
+    Json(graph.prime_implicants())
+  } else {
+    Json::null()
+  }
   let diagnosis = if j is Object(fields) && fields.get("diagnose") is Some(True) {
     let cutsets = graph.minimal_cut_sets()
     let conditional = match fields.get("observations") {
@@ -149,7 +164,9 @@ fn execute(j : Json) -> Json raise {
   Json::object({
     "ok": Json(true),
     "probability": Json(graph.probability(probabilities)),
-    "importance": Json(graph.importance(probabilities)),
+    "importance": Json(factors.map(fn(factor) { factor.birnbaum })),
+    "importance_factors": importance_report(factors, names),
+    "prime_implicants": prime_implicants,
     "allocated_nodes": Json(graph.node_count()),
     "diagnosis": diagnosis,
     "range": range,

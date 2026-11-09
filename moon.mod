@@ -9,3 +9,7 @@ description = "Shared-event Boolean fault graphs with bounded ROBDD compilation.
 repository = "https://github.com/btlqql/moon-faultgraph"
 
 readme = "README.md"
+
+import {
+  "Milky2018/xml@0.5.0",
+}

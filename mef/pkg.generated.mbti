@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "btlqql/moon_faultgraph/mef"
+
+import {
+  "btlqql/moon_faultgraph",
+}
+
+// Values
+pub fn parse_static(String, top? : String) -> StaticModel raise
+
+// Errors
+pub(all) suberror MefError {
+  InvalidModel(String)
+}
+
+// Types and methods
+pub struct StaticModel {
+  graph : @moon_faultgraph.FaultGraph
+  events : Array[String]
+  probabilities : Array[Double]
+  top : String
+  // private fields
+}
+pub fn StaticModel::to_xml(Self, probabilities? : Array[Double]) -> String raise
+
+// Type aliases
+
+// Traits

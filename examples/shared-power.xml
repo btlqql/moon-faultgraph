@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<opsa-mef>
+  <define-fault-tree name="SharedPower">
+    <define-gate name="ServiceDown">
+      <or>
+        <basic-event name="PowerLoss"/>
+        <and>
+          <or><basic-event name="PowerLoss"/><basic-event name="PathAUnavailable"/></or>
+          <or><basic-event name="PowerLoss"/><basic-event name="PathBUnavailable"/></or>
+        </and>
+      </or>
+    </define-gate>
+  </define-fault-tree>
+  <model-data>
+    <define-basic-event name="PowerLoss"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="PathAUnavailable"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="PathBUnavailable"><float value="0.3"/></define-basic-event>
+  </model-data>
+</opsa-mef>

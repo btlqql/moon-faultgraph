@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<opsa-mef>
+  <define-fault-tree name="IndependentPower">
+    <define-gate name="ServiceDown">
+      <and>
+        <or><basic-event name="FeedALoss"/><basic-event name="PathAUnavailable"/></or>
+        <or><basic-event name="FeedBLoss"/><basic-event name="PathBUnavailable"/></or>
+      </and>
+    </define-gate>
+  </define-fault-tree>
+  <model-data>
+    <define-basic-event name="FeedALoss"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="FeedBLoss"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="PathAUnavailable"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="PathBUnavailable"><float value="0.3"/></define-basic-event>
+  </model-data>
+</opsa-mef>

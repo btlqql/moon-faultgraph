@@ -2,6 +2,7 @@ supported_targets = "js"
 
 import {
   "btlqql/moon_faultgraph" @core,
+  "btlqql/moon_faultgraph/mef",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
 }

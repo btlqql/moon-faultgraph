@@ -1,0 +1,5 @@
+{
+  "mef": "shared-power.xml",
+  "prime_implicants": true,
+  "probability_overrides": { "PowerLoss": 0.02 }
+}
