@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, remake/november]
   pull_request:
 permissions:
   contents: read
@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: '3.12'
       - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+        with:
+          version: '0.10.15+943464bfa'
+          core-version: '0.10.15+943464bfa'
       - run: moon version --all
       - run: moon check --target ${{ matrix.target }} --deny-warn
       - run: moon build --target ${{ matrix.target }} --deny-warn
@@ -28,3 +31,34 @@ jobs:
       - name: Independent oracle and CLI file workflows
         if: matrix.target == 'js'
         run: python scripts/verify.py
+  scram:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    env:
+      SCRAM_REVISION: 9c9a75ca0c5c2fbb5b4a7d32e29fd25bf90f7bab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+        with:
+          version: '0.10.15+943464bfa'
+          core-version: '0.10.15+943464bfa'
+      - name: Build independent SCRAM reference
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libxml2-dev libboost-program-options-dev libboost-filesystem-dev libboost-system-dev libboost-random-dev libboost-math-dev
+          curl -fLS --retry 3 "https://codeload.github.com/rakhimov/scram/tar.gz/$SCRAM_REVISION" | tar -xz -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/scram-$SCRAM_REVISION" -B "$RUNNER_TEMP/scram-build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/scram-install" -DBUILD_GUI=OFF -DBUILD_TESTING=OFF -DWITH_TCMALLOC=OFF -DWITH_JEMALLOC=OFF
+          cmake --build "$RUNNER_TEMP/scram-build" --parallel 2 --target install
+      - name: Compare import, analysis and exported MEF
+        run: |
+          python scripts/verify_scram.py --scram "$RUNNER_TEMP/scram-install/bin/scram" --reference-model "$RUNNER_TEMP/scram-$SCRAM_REVISION/tests/input/core/ab_bc.xml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scram-comparison
+          path: _build/scram-comparison.json
