@@ -32,7 +32,7 @@ fn read_tree(source : String) -> Element raise {
   if input.contains("<!DOCTYPE") {
     raise InvalidModel("only a bare opsa-mef doctype is supported")
   }
-  let reader = @xml.Reader::from_string(input)
+  let reader = @xml.Reader::from_string(source)
   let root : Element = {
     tag: "",
     attrs: [],
@@ -64,7 +64,7 @@ fn read_tree(source : String) -> Element raise {
           raise InvalidModel("unexpected text in " + current.tag)
         }
       }
-      Comment(_) | Decl(..) => ()
+      Comment(_) | Decl(..) | DocType("opsa-mef") => ()
       Eof => break
       _ => raise InvalidModel("unsupported XML declaration")
     }

@@ -25,6 +25,7 @@ jobs:
           version: '0.10.15+943464bfa'
           core-version: '0.10.15+943464bfa'
       - run: moon version --all
+      - run: moon update
       - run: moon check --target ${{ matrix.target }} --deny-warn
       - run: moon build --target ${{ matrix.target }} --deny-warn
       - run: moon test --target ${{ matrix.target }} --deny-warn
@@ -53,10 +54,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y libxml2-dev libboost-program-options-dev libboost-filesystem-dev libboost-system-dev libboost-random-dev libboost-math-dev
           curl -fLS --retry 3 "https://codeload.github.com/rakhimov/scram/tar.gz/$SCRAM_REVISION" | tar -xz -C "$RUNNER_TEMP"
-          cmake -S "$RUNNER_TEMP/scram-$SCRAM_REVISION" -B "$RUNNER_TEMP/scram-build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/scram-install" -DBUILD_GUI=OFF -DBUILD_TESTING=OFF -DWITH_TCMALLOC=OFF -DWITH_JEMALLOC=OFF
+          # SCRAM 0.16.2 uses the name from older Boost headers for error locations.
+          cmake -S "$RUNNER_TEMP/scram-$SCRAM_REVISION" -B "$RUNNER_TEMP/scram-build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/scram-install" -DBUILD_GUI=OFF -DBUILD_TESTING=OFF -DWITH_TCMALLOC=OFF -DWITH_JEMALLOC=OFF -DCMAKE_CXX_FLAGS="-include boost/current_function.hpp -DBOOST_THROW_EXCEPTION_CURRENT_FUNCTION=BOOST_CURRENT_FUNCTION"
           cmake --build "$RUNNER_TEMP/scram-build" --parallel 2 --target install
       - name: Compare import, analysis and exported MEF
         run: |
+          moon update
           python scripts/verify_scram.py --scram "$RUNNER_TEMP/scram-install/bin/scram" --reference-model "$RUNNER_TEMP/scram-$SCRAM_REVISION/tests/input/core/ab_bc.xml"
       - uses: actions/upload-artifact@v4
         with:
