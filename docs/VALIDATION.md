@@ -1,15 +1,14 @@
-# 验证记录
+# 0.4.0 验证记录
 
-版本0.3.0；8项MoonBit测试，本地JS/Wasm/Wasm-GC各8项通过。
+`python scripts/verify.py` 以 Python 真值表枚举概率、强制事件概率及所有三值字面量组合，独立核对 64 组共享变量模型的概率、FV/DIF、RAW、RRW、Birnbaum 和素蕴含项。其中 40 组额外核对旧有的最小割集、单调区间和修复效果。
 
-[代码基线四后端CI](https://github.com/btlqql/moon-faultgraph/actions/runs/41198974782)：`09336860b6784c2a851866eccf57b303e1ad1271`。
+| 例子 | 本地输出 |
+|---|---:|
+| 共用上游供电 | 0.154 |
+| 共用电源概率降为 0.02 | 0.0788 |
+| 独立馈电 | 0.1036 |
+| 非单调模式切换 | 0.086 |
 
-公共CI的JS、Wasm、Wasm-GC、native四个job均实际成功；其中JS执行独立脚本及文件流程。
+脚本验证导出后重新导入的结果、同名事件复用、已有文件保护，以及非法概率、外部 DTD、引用环和类型错误的拒绝。MoonBit 11 项测试包含投票、状态常量、XML 导出与有符号项。Windows 本地 JS、Wasm、Wasm-GC 均已执行。
 
-```sh
-moon check --target all --deny-warn
-moon test --target all --deny-warn
-python scripts/verify.py
-```
-
-独立脚本只使用标准库、MoonBit和Node，不读取相邻工作区。模型、批量案例和测试条目数量分开记录。具体领域边界见README与申报书。
+SCRAM 对照由 `scripts/verify_scram.py` 驱动，以固定 SCRAM 0.16.2 源码构建参考程序，比较顶事件概率、有限重要度、带符号项及导出后的模型。范围包含仓库模型与 SCRAM 上游样例。比率零分母状态由本项目独立检验。 [公共 CI 与对照产物](https://github.com/btlqql/moon-faultgraph/actions)

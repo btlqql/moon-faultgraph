@@ -1,54 +1,40 @@
-# MoonFaultGraph
+# MoonFaultGraph 0.4.0
 
-共享事件Boolean故障图与冗余架构分析，主要业务机制由MoonBit实现，Apache-2.0。
+面向冗余供电和服务架构评审的 MoonBit 静态故障树分析工具。导入 Open-PSA MEF，保留共享事件身份，计算顶事件概率、事件重要度与含正负事件的素蕴含项，并导出修改概率后的模型。
 
-当冗余分支共用同一电源或服务依赖时，保持事件身份，计算故障概率、最小割集、条件结果与单事件修复效果。
-
-## 可运行任务
+## 复现供电与模式切换案例
 
 ```sh
-moon run cmd/main --target js -- examples/uncertainty-and-repair.json
-moon run cmd/main --target js -- examples/shared-power-diagnosis.json
+moon update
+moon run cmd/main --target js -- examples/shared-power-review.json
+moon run cmd/main --target js -- examples/independent-power-review.json
+moon run cmd/main --target js -- examples/mode-switch-review.json
 ```
 
-(A AND B) OR (A AND C)在p=(0.1,0.2,0.3)时概率0.044；区间上端(0.2,0.3,0.4)给0.116。使共享A不发生后剩余顶事件概率为0。
+共用上游供电的模型得到顶事件概率 **0.154**。共用电源失效概率从 0.10 降至 0.02 后，结果为 **0.0788**。另建独立馈电模型并采用例中独立性假设，结果为 **0.1036**。这些概率来自可审查的示例参数，供验证分析流程和比较假设。
 
-range.lower/upper指定独立基础事件概率上下端点；mitigations=true输出逐事件修复。diagnose=true可输出完整正事件割集与observations条件结果。
+模式切换案例会输出三个素蕴含项，包含与模式状态无关的“两条路径都失效”。共享基础事件在同一模型中只建一个随机变量。
 
-CLI读取JSON文件，ok表示计算执行成功；领域可行性、超时或削波需读取各自字段。Node只读写文件、设置退出码和封装PCM；核心算法不转发给Python/C或外部服务。
+## 导入、分析、导出
 
-## 可复用接口与安装
+请求文件示例见 `examples/shared-power-review.json`。字段 `mef` 指向输入 XML，`probability_overrides` 按事件名称替换概率，`prime_implicants` 开启完整有符号项，`export` 可指定尚不存在的输出 XML。输入输出路径相对于请求文件。多顶事件时，用 `top` 选择分析对象。
+
+支持范围为一棵平面静态树和可选 `model-data`，含命名公开门、共享基础事件、固定概率、状态常量、AND/OR/NOT 与 `atleast`。不同基础事件采用独立性假设。复杂命名空间、参数表达式、分布、动态门、组件、CCF 组与外部引用由输入校验拒绝。
+
+## 分析定义
+
+令 `Q` 为基准概率，`Q1` 和 `Q0` 分别为强制事件发生和不发生后的概率。RAW 为 `Q1/Q`，RRW 为 `Q/Q0`，FV 采用 SCRAM 的诊断重要度口径 `p×Q1/Q`。基准为零时三个比率均标为 undefined，正分子除以零的 RRW 标为 unbounded。有 NOT 的模型保留 Birnbaum 的符号，使用实际强制情景解释方向。
+
+素蕴含项分析比较 BDD 两个分支及其交集。返回项为足以触发顶事件且删除任一字面量即失效的最小条件。分析资源超限时返回错误。
+
+## 安装和验证
 
 ```sh
-moon add btlqql/moon_faultgraph@0.3.0
-```
-
-在moon.pkg导入`"btlqql/moon_faultgraph" @core`；完整签名见[pkg.generated.mbti](pkg.generated.mbti)。
-
-ROBDD唯一表、归约与Apply缓存，AND/OR/NOT/投票门，概率、有符号重要度、正事件最小割集、条件证据、单调概率区间及单事件修复情景。
-
-## 验证
-
-```sh
-moon check --target all --deny-warn
+moon add btlqql/moon_faultgraph@0.4.0
 moon test --target js --deny-warn
-moon test --target wasm --deny-warn
-moon test --target wasm-gc --deny-warn
 python scripts/verify.py
 ```
 
-当前8项MoonBit测试。独立开发对照：64组Boolean真值表模型，其中40组同时枚举最小割集、区间端点及单事件修复结果。
+库核心 API 为 `btlqql/moon_faultgraph`，MEF 解析与导出为 `btlqql/moon_faultgraph/mef`。原 JSON 请求、概率、Birnbaum、正割集、条件和单调区间接口继续可用。XML 词法复用 Milky2018/xml，语义解析、BDD 和风险计算由 MoonBit 实现。
 
-脚本只需要Python标准库、Node与MoonBit；可用MOON_BIN指定moon路径。产物保存在本仓库_build/oracle，脚本不下载外部库，不访问相邻工作区。CI覆盖JS/Wasm/Wasm-GC/native，实际运行状态见[Actions](https://github.com/btlqql/moon-faultgraph/actions)。本地验证和公共CI结论分别记录，不用静态检查冒称native运行。
-
-## 实现边界与来源
-
-不同基础变量必须统计独立；重复变量是同一事件。割集/区间/修复仅接受语法无NOT的单调模型。区间是参数范围，不是置信区间。单事件修复结果不可相加推断组合修复。未实现动态故障树、任意相关联合分布或故障率估计。
-
-对照详见[ECOSYSTEM](docs/ECOSYSTEM.md)，归属见[THIRD_PARTY](THIRD_PARTY.md)。实例是软件模型或合成输入，不是生产部署证明。
-
-## 申报与开发记录
-
-[完整版Markdown申报书](docs/proposal.md) | [一页Markdown摘要](docs/proposal-summary.md) | [实际提交历史](https://github.com/btlqql/moon-faultgraph/commits/main/)
-
-版本0.3.0。GitHub提交保留真实时间与每次文件变化；不以数量替代独立价值和实际质量。十一月规则尚未从公开页面完整确认，开源发布不等于比赛报名或验收通过。
+[验证记录](docs/VALIDATION.md) · [生态对照](docs/ECOSYSTEM.md) · [完整申报书](docs/proposal.md) · [一页项目说明](docs/proposal-summary.md)

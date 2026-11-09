@@ -1,10 +1,10 @@
 name = "btlqql/moon_faultgraph"
 
-version = "0.3.0"
+version = "0.4.0"
 
 license = "Apache-2.0"
 
-description = "Shared-event Boolean fault graphs with bounded ROBDD compilation."
+description = "Static Open-PSA fault trees, event importance, and signed prime implicants."
 
 repository = "https://github.com/btlqql/moon-faultgraph"
 

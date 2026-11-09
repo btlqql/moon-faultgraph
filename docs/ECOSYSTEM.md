@@ -1,9 +1,8 @@
-# 与已有项目的职责对照
+# 与相邻项目的职责对照
 
-核查日期2026-10-31。检索公开仓库、模块和最接近项目的一手README；未命中不构成生态唯一保证。
+| 项目 | 主要职责 | MoonFaultGraph 本轮交付 |
+|---|---|---|
+| SCRAM | 成熟的概率风险分析工具，提供故障树、重要度和 MEF 支持 | 将受限静态分析封装为可跨 MoonBit 后端调用的库，并将 SCRAM 用作输入交换与数值对照 |
+| moon-reliability | MoonBit 可靠性工程库，含寿命分布、系统/网络可靠性和故障树辅助能力 | 共享变量 Boolean DAG 的 BDD 求值、有符号素蕴含项、MEF 子集与模型修改前后的可复现情景 |
 
-- [wcx789ll/moon-reliability](https://github.com/wcx789ll/moon-reliability)：已有fault_tree_and/or、最小割集概率和网络可靠性等相邻能力。本项目的区分是共享变量通用Boolean DAG的ROBDD编译及统一求值/诊断流程，不把故障树领域称为空白。
-
-不同基础变量必须统计独立；重复变量是同一事件。割集/区间/修复仅接受语法无NOT的单调模型。区间是参数范围，不是置信区间。单事件修复结果不可相加推断组合修复。未实现动态故障树、任意相关联合分布或故障率估计。
-
-本项目是AI辅助的独立MoonBit实现，算法来自成熟公开方法，不将CLI、基础I/O或第三方数据计为独立算法贡献。
+BDD、重要度和素蕴含项采用已知方法。本次交付是 MoonBit 原生分析接口、可互操作静态模型及其验证流程。 [SCRAM](https://github.com/rakhimov/scram) · [moon-reliability](https://github.com/wcx789ll/moon-reliability)
