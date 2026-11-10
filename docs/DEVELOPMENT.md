@@ -16,3 +16,5 @@ ca493c6 | 2026-10-31T19:53:19+08:00 | Run portable tests on four backends and in
 ```
 
 用户本轮明确确认：比赛要求为每个参赛仓库至少10次提交，没有另列起始或截止时间。本项目按仓库真实历史计数，不再将旧通知的9月1日或假设的11月1日另作本轮门槛。
+
+0.4.1 在原仓库的静态 MEF 分析基础上增加批量方案评审。模型替换与概率覆盖复用原解析和分析接口，每个备选方案单独保存有效参数。事件预防效果保留符号，基准概率为零时，相对变化保留空值。输入校验补上 MEF 小数写法、投票门整数阈值和结构化文件错误。 [0.4.0 基线](https://github.com/btlqql/moon-faultgraph/tree/v0.4.0) · [开发提交](https://github.com/btlqql/moon-faultgraph/commits/main/) · [验证记录](VALIDATION.md)

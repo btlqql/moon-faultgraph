@@ -1,6 +1,6 @@
 name = "btlqql/moon_faultgraph"
 
-version = "0.4.0"
+version = "0.4.1"
 
 license = "Apache-2.0"
 

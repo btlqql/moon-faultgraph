@@ -1,6 +1,27 @@
-# MoonFaultGraph 0.4.0
+# MoonFaultGraph 0.4.1
 
-面向冗余供电和服务架构评审的 MoonBit 静态故障树分析工具。导入 Open-PSA MEF，保留共享事件身份，计算顶事件概率、事件重要度与含正负事件的素蕴含项，并导出修改概率后的模型。
+面向冗余供电和服务架构评审的 MoonBit 静态故障树分析工具。导入 Open-PSA MEF，保留共享事件身份，在同一份报告里比较基准和备选方案，查看顶事件概率、重要度和有符号素蕴含项。单模型流程支持导出调整概率后的 XML。
+
+## 一次比较三个供电方案
+
+安装 MoonBit 和 Node.js 22 或以上，从仓库根目录运行。
+
+```sh
+moon update
+moon run cmd/main --target js -- examples/power-design-review.json
+```
+
+示例把服务中断作为共同分析目标，并设定概率目标 0.09。
+
+| 方案 | 顶事件概率 | 较基准减少 | 样例目标 |
+|---|---:|---:|---|
+| 共用上游供电（基准） | 0.1540 | 0 | 超出 |
+| 改善共用电源 | 0.0788 | 0.0752 | 达到 |
+| 改为独立馈电 | 0.1036 | 0.0504 | 超出 |
+
+报告按概率比较方案，并给出每个方案中阻止某一事件后会降低或增加多少顶事件概率。比较者需要确认各树的顶事件含义、分析周期和输入概率口径一致。示例的阈值与概率是可检查的模型参数。
+
+`design_review` 请求保留共同故障含义 `outcome` 和概率口径 `probability_basis`。基准和备选方案用名称区分，备选可引用另一份 MEF，也可只修改基准模型中的指定概率。设置 `maximum_probability` 后，报告将计算出的双精度概率与上限直接比较。原有单模型请求仍可用来做 MEF 导入、调整和导出。
 
 ## 复现供电与模式切换案例
 
@@ -30,11 +51,11 @@ moon run cmd/main --target js -- examples/mode-switch-review.json
 ## 安装和验证
 
 ```sh
-moon add btlqql/moon_faultgraph@0.4.0
+moon add btlqql/moon_faultgraph@0.4.1
 moon test --target js --deny-warn
 python scripts/verify.py
 ```
 
 库核心 API 为 `btlqql/moon_faultgraph`，MEF 解析与导出为 `btlqql/moon_faultgraph/mef`。原 JSON 请求、概率、Birnbaum、正割集、条件和单调区间接口继续可用。XML 词法复用 Milky2018/xml，语义解析、BDD 和风险计算由 MoonBit 实现。
 
-[验证记录](docs/VALIDATION.md) · [生态对照](docs/ECOSYSTEM.md) · [完整申报书](docs/proposal.md) · [一页项目说明](docs/proposal-summary.md)
+[评审报告附件](https://github.com/btlqql/moon-faultgraph/releases/tag/v0.4.1) · [验证记录](docs/VALIDATION.md) · [生态对照](docs/ECOSYSTEM.md) · [完整申报书](docs/proposal.md) · [一页项目说明](docs/proposal-summary.md)
