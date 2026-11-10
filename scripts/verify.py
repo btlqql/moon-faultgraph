@@ -12,6 +12,8 @@ def invoke(args):
 invoke([MOON,'build','--target','js','--deny-warn'])
 def request(data,ok=True):
     path=WORK/'request.json';path.write_text(json.dumps(data),encoding='utf-8')
+    return request_from(path,ok)
+def request_from(path,ok=True):
     p=subprocess.run(['node',str(ROOT/'_build/js/debug/build/cmd/main/main.js'),str(path)],cwd=ROOT,capture_output=True,text=True,encoding='utf-8')
     result=json.loads(p.stdout)
     assert result['ok']==ok and (p.returncode==0)==ok,(p.stdout,p.stderr)
@@ -92,6 +94,73 @@ assert {frozenset((x['event'],x['occurs']) for x in term) for term in switch['pr
     frozenset([('AlternateMode',True),('AlternateDown',True)]),
     frozenset([('PrimaryDown',True),('AlternateDown',True)]),
 }
+design = request_from(ROOT/'examples/power-design-review.json')
+assert design['top'] == 'ServiceDown' and design['maximum_probability'] == 0.09
+assert design['baseline']['probability'] == shared['probability']
+assert design['baseline']['meets_target'] is False
+upgrade, split = design['variants']
+assert [upgrade['name'], split['name']] == ['Upgrade the shared feed', 'Independent feeds']
+assert upgrade['meets_target'] is True and split['meets_target'] is False
+for result, expected in [(upgrade, .0788), (split, .1036)]:
+    assert math.isclose(result['probability'], expected, abs_tol=1e-12)
+    assert math.isclose(result['risk_reduction'], .154 - expected, abs_tol=1e-12)
+    assert math.isclose(result['relative_risk_reduction'], (.154 - expected) / .154, abs_tol=1e-12)
+    assert result['prime_implicants'] and result['importance_factors']
+priority = design['baseline']['prevention_effects']
+assert priority == sorted(priority, key=lambda row: (-row['risk_reduction'], row['event']))
+assert priority[0]['event'] == 'PowerLoss' and priority[0]['effect'] == 'reduces_risk'
+assert math.isclose(priority[0]['probability_if_prevented'], .06, abs_tol=1e-12)
+assert math.isclose(priority[0]['risk_reduction'], .094, abs_tol=1e-12)
+
+def review_request(baseline, variants, **options):
+    return dict(design_review=dict(outcome='Service loss', probability_basis='Equal illustrative mission',
+                                   baseline=baseline, variants=variants, **options))
+
+nonmonotone = review_request(
+    dict(name='Mode switch', mef=model('mode-switch.xml')),
+    [dict(name='Fixed primary', probability_overrides=dict(AlternateMode=0))],
+)
+nonmonotone_report = request(nonmonotone)
+mode = next(row for row in nonmonotone_report['baseline']['prevention_effects']
+            if row['event'] == 'AlternateMode')
+assert mode['effect'] == 'increases_risk'
+assert math.isclose(mode['risk_reduction'], -.014, abs_tol=1e-12)
+assert math.isclose(mode['probability_if_prevented'], .1, abs_tol=1e-12)
+assert nonmonotone_report['variants'][0]['risk_reduction'] < 0
+assert nonmonotone_report['variants'][0]['meets_target'] is None
+
+zero = dict(name='Ideal feed and path', mef=model('shared-power.xml'),
+            probability_overrides=dict(PowerLoss=0, PathAUnavailable=0))
+restored_feed = dict(name='Restored feed fault', probability_overrides=dict(PowerLoss=.1))
+tie = dict(name='Another restored feed fault', probability_overrides=dict(PowerLoss=.1))
+isolated_path = dict(name='Path fault only', probability_overrides=dict(PathAUnavailable=.2))
+zero_report = request(review_request(zero, [restored_feed, tie, isolated_path]))
+assert zero_report['baseline']['probability'] == 0
+assert [row['name'] for row in zero_report['variants']] == [
+    'Path fault only', 'Another restored feed fault', 'Restored feed fault',
+]
+assert math.isclose(zero_report['variants'][0]['probability'], .06, abs_tol=1e-12)
+assert [row['probability'] for row in zero_report['variants'][1:]] == [.1, .1]
+assert all(row['relative_risk_reduction'] is None for row in zero_report['variants'])
+boundary = dict(name='At the decimal target', mef=model('shared-power.xml'),
+                probability_overrides=dict(PowerLoss=0, PathAUnavailable=.1, PathBUnavailable=.2))
+below = dict(name='Below the target', probability_overrides=dict(PathAUnavailable=.09))
+boundary_report = request(review_request(boundary, [below], maximum_probability=.02))
+assert boundary_report['baseline']['probability'] == .1 * .2
+assert boundary_report['baseline']['meets_target'] is False
+assert boundary_report['variants'][0]['meets_target'] is True
+for variants in [
+    [dict(name=zero['name'], mef=model('shared-power.xml'))],
+    [dict(name='No change specified')],
+    [dict(name='Bad event', probability_overrides={'Unknown': .2})],
+    [dict(name='Bad probability', probability_overrides={'PowerLoss': 1.2})],
+    [dict(name='Conflicting top', top='other', mef=model('shared-power.xml'))],
+]:
+    request(review_request(zero, variants), False)
+request(dict(review_request(zero, [restored_feed]), mef=model('shared-power.xml')), False)
+request(review_request(zero, [restored_feed], maximum_probability=-.1), False)
+request(review_request(zero, [restored_feed], prime_implicants='true'), False)
+
 with tempfile.TemporaryDirectory(dir=WORK) as folder:
     exported = Path(folder)/'remediated.xml'
     change = dict(mef=model('shared-power.xml'), probability_overrides={'PowerLoss':.02},
@@ -114,11 +183,20 @@ with tempfile.TemporaryDirectory(dir=WORK) as folder:
     ]:
         invalid.write_text(source,encoding='utf-8')
         request({'mef':str(invalid)},False)
+    invalid.write_text(text.replace('ServiceDown', 'DifferentTop'), encoding='utf-8')
+    mismatch = request(review_request(zero, [dict(name='Different gate', mef=str(invalid))]), False)
+    assert 'unknown top gate ServiceDown' in mismatch['error'], mismatch
+    absent = Path(folder)/'absent.xml'
+    missing = request(review_request(zero, [dict(name='Missing file', mef=str(absent))]), False)
+    assert 'cannot read input' in missing['error']
 report={'status':'passed','seed':20261031,'boolean_truth_table_models':64,
         'signed_prime_and_importance_oracles':64,'coherent_range_cut_repair_models':40,
         'shared_power':shared['probability'],'independent_feeds':independent['probability'],
         'upgraded_shared_power':revised['probability'],'mode_switch':switch['probability'],
-        'mef_round_trip_and_invalid_inputs':True}
+        'mef_round_trip_and_invalid_inputs':True,
+        'design_review_ranking_and_target':True,'design_review_signed_prevention':True,
+        'design_review_zero_baseline_and_isolated_variants':True,
+        'design_review_computed_probability_target_boundary':True}
 
 (WORK/'result.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report,indent=2))

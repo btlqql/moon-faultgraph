@@ -1,6 +1,23 @@
 ///|
-extern "js" fn read_input(path : String) -> String =
-  #| p => {const f=process.getBuiltinModule('fs'); const s=f.statSync(p); if(s.size>16000000)throw Error('input exceeds 16 MB');return f.readFileSync(p,'utf8');}
+extern "js" fn read_input_file(path : String) -> FixedArray[String] =
+  #| p => {
+  #|   try {
+  #|     const fs = process.getBuiltinModule('fs');
+  #|     const stat = fs.statSync(p);
+  #|     if (!stat.isFile()) return ['', 'expected a regular file'];
+  #|     if (stat.size > 16000000) return ['', 'input exceeds 16 MB'];
+  #|     return [fs.readFileSync(p, 'utf8'), ''];
+  #|   } catch (error) { return ['', error.code ?? 'input read failed']; }
+  #| }
+
+///|
+fn read_input(path : String) -> String raise {
+  let file = read_input_file(path)
+  if file[1] != "" {
+    fail("cannot read input " + path + ": " + file[1])
+  }
+  file[0]
+}
 
 ///|
 extern "js" fn status(code : Int32) -> Unit =
@@ -47,6 +64,12 @@ fn main {
     let path = args[args.length() - 1]
     let request = @json.parse(read_input(path))
     let result = if request is Object(fields) &&
+      fields.get("design_review") is Some(review) {
+      if fields.length() != 1 {
+        fail("design_review must be the only top-level field")
+      }
+      run_design_review(review, path)
+    } else if request is Object(fields) &&
       fields.get("mef") is Some(String(model)) {
       run_mef(request, path, model)
     } else {
@@ -55,8 +78,12 @@ fn main {
     println(result.stringify())
   } catch {
     error => {
+      let message = match error {
+        @mef.InvalidModel(message) => message
+        _ => error.to_string()
+      }
       println(
-        Json::object({ "ok": Json(false), "error": Json(error.to_string()) }).stringify(),
+        Json::object({ "ok": Json(false), "error": Json(message) }).stringify(),
       )
       status(1)
     }

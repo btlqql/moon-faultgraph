@@ -65,39 +65,63 @@ fn named_primes(graph : @core.FaultGraph, names : Array[String]) -> Json raise {
 }
 
 ///|
+fn requested_top(fields : Map[String, Json]) -> String? raise {
+  match fields.get("top") {
+    Some(String(name)) => Some(name)
+    None => None
+    _ => fail("top must be a gate name")
+  }
+}
+
+///|
+fn with_overrides(
+  events : Array[String],
+  probabilities : Array[Double],
+  overrides : Json?,
+) -> Array[Double] raise {
+  let p = probabilities.copy()
+  match overrides {
+    Some(Object(overrides)) =>
+      for name, value in overrides {
+        let mut event = -1
+        for i in 0..<events.length() {
+          if events[i] == name {
+            event = i
+            break
+          }
+        }
+        if event == -1 {
+          fail("unknown basic event " + name)
+        }
+        let probability = num(value)
+        if probability < 0.0 || probability > 1.0 {
+          fail("probability outside [0,1] for " + name)
+        }
+        p[event] = probability
+      }
+    None => ()
+    _ => fail("probability_overrides must be an object")
+  }
+  p
+}
+
+///|
 fn run_mef(
   request : Json,
   request_path : String,
   model_path : String,
 ) -> Json raise {
   guard request is Object(fields) else { fail("expected object") }
-  let top = match fields.get("top") {
-    Some(String(name)) => Some(name)
-    None => None
-    _ => fail("top must be a gate name")
-  }
+  let top = requested_top(fields)
   let model = @mef.parse_static(
     read_input(resolve_from(request_path, model_path)),
     top?,
   )
-  let p = model.probabilities.copy()
-  match fields.get("probability_overrides") {
-    Some(Object(overrides)) =>
-      for name, value in overrides {
-        let mut event = -1
-        for i in 0..<model.events.length() {
-          if model.events[i] == name {
-            event = i
-          }
-        }
-        if event == -1 {
-          fail("unknown basic event " + name)
-        }
-        p[event] = num(value)
-      }
-    None => ()
-    _ => fail("probability_overrides must be an object")
-  }
+  let p = with_overrides(
+    model.events,
+    model.probabilities,
+    fields.get("probability_overrides"),
+  )
   let baseline = model.graph.probability(model.probabilities)
   let probability = model.graph.probability(p)
   let factors = importance_report(model.graph.event_importance(p), model.events)

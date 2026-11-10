@@ -1,0 +1,22 @@
+{
+  "design_review": {
+    "outcome": "Loss of supply to the service",
+    "probability_basis": "Illustrative independent basic-event probabilities for the same mission and operating conditions in every design.",
+    "maximum_probability": 0.09,
+    "prime_implicants": true,
+    "baseline": {
+      "name": "Shared upstream feed",
+      "mef": "shared-power.xml"
+    },
+    "variants": [
+      {
+        "name": "Independent feeds",
+        "mef": "independent-power.xml"
+      },
+      {
+        "name": "Upgrade the shared feed",
+        "probability_overrides": { "PowerLoss": 0.02 }
+      }
+    ]
+  }
+}

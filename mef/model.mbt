@@ -32,10 +32,13 @@ fn scalar(node : Element) -> Double raise {
   node.allow(["value"])
   node.leaf()
   let text = node.required("value")
-  guard @json.parse(text) is Number(value, ..) else {
+  // MEF float values use the XML Schema decimal spelling, not JSON's.
+  if text.contains("_") {
     raise InvalidModel("invalid numeric literal " + text)
   }
-  value
+  @string.parse_double(text.trim()) catch {
+    _ => raise InvalidModel("invalid numeric literal " + text)
+  }
 }
 
 ///|
@@ -165,18 +168,16 @@ fn Resolver::formula(
       }
       if node.tag == "atleast" {
         let count = node.required("min")
-        let k = scalar({
-          tag: "float",
-          attrs: [("value", count)],
-          children: [],
-          text: StringBuilder(),
-        })
-        if k < 1.0 ||
-          k > inputs.length().to_double() ||
-          k.to_int().to_double() != k {
+        if count.contains("_") {
           raise InvalidModel("invalid atleast threshold")
         }
-        self.push(@core.Vote(k.to_int(), inputs))
+        let k = @string.parse_int(count.trim(), base=10) catch {
+          _ => raise InvalidModel("invalid atleast threshold")
+        }
+        if k < 1 || k > inputs.length() {
+          raise InvalidModel("invalid atleast threshold")
+        }
+        self.push(@core.Vote(k, inputs))
       } else {
         let mut root = inputs[0]
         for i in 1..<inputs.length() {

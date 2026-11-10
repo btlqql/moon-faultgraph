@@ -6,12 +6,12 @@ test "MEF vote and house event survive probability override and export" {
     #|<opsa-mef>
     #|  <define-fault-tree name="VoteTree">
     #|    <define-gate name="Loss">
-    #|      <atleast min="2"><basic-event name="A"/><basic-event name="B"/><house-event name="On"/></atleast>
+    #|      <atleast min=" +02 "><basic-event name="A"/><basic-event name="B"/><house-event name="On"/></atleast>
     #|    </define-gate>
     #|  </define-fault-tree>
     #|  <model-data>
-    #|    <define-basic-event name="A"><label>Supply &amp; converter</label><float value="0.1"/></define-basic-event>
-    #|    <define-basic-event name="B"><float value="0.2"/></define-basic-event>
+    #|    <define-basic-event name="A"><label>Supply &amp; converter</label><float value=" +.10 "/></define-basic-event>
+    #|    <define-basic-event name="B"><float value="02.e-1"/></define-basic-event>
     #|    <define-house-event name="On"><constant value="true"/></define-house-event>
     #|  </model-data>
     #|</opsa-mef>
@@ -29,4 +29,12 @@ test "MEF vote and house event survive probability override and export" {
     (roundtrip.graph.probability(roundtrip.probabilities) - 0.58).abs() <
     1.0e-12,
   )
+  for (old, new) in [("min=\" +02 \"", "min=\"2e0\""), ("02.e-1", "0.2_0")] {
+    try parse_static(source.replace_all(old~, new~)) catch {
+      InvalidModel(_) => ()
+      err => raise err
+    } noraise {
+      _ => fail("expected MEF numeric syntax rejection")
+    }
+  }
 }

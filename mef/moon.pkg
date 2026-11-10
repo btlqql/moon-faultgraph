@@ -1,5 +1,5 @@
 import {
   "btlqql/moon_faultgraph" @core,
   "Milky2018/xml",
-  "moonbitlang/core/json",
+  "moonbitlang/core/string",
 }
