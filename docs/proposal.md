@@ -1,38 +1,71 @@
-# MoonFaultGraph 项目申报书
+# MoonFaultGraph 完整项目申报书
 
-**MoonFaultGraph 0.4.1 · 静态故障树互操作与供电方案评审**
+**0.5.0 · 多树静态故障树互操作与方案评审**
 
-参赛账号 btlqql，主要实现语言 MoonBit，代码许可证 Apache-2.0。 [GitHub 仓库](https://github.com/btlqql/moon-faultgraph) · [MoonCakes](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.4.1)
+| 项目 | 内容 |
+| --- | --- |
+| 参赛账号 | btlqql |
+| 核心技术 | MoonBit、二元决策图、Open-PSA MEF |
+| 交付形式 | MoonBit 库、JSON 命令行工具、MEF 示例和自动化验证脚本 |
+| 开源许可证 | Apache-2.0 |
 
-## 实际任务
+[GitHub 仓库](https://github.com/btlqql/moon-faultgraph) · [v0.5.0 附件入口](https://github.com/btlqql/moon-faultgraph/releases/tag/v0.5.0) · [MoonCakes 版本入口](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.5.0)
 
-系统设计人员在评审冗余供电时，需要检查两条转换路径是否共享上游电源，并决定哪些方案值得进入后续评估。本工具读入静态 MEF 模型，在同一个请求中比较共用供电基准、改善共用电源和改用独立馈电。结果保留共同故障定义和概率口径，列出概率排序、较基准的变化、是否达到设定目标及每个方案的事件预防效果。单模型请求可将调整后的模型导出供其他工具检查。
+## 一、项目摘要与实际需求
 
-## 对应初审的本轮增量
+供电和联锁评审经常从多个团队维护的设备模型开始。同一份交换文档可以有多棵树，每棵树下还会有组件。例如，不同设备都可能定义名为 `Power` 的基础事件，同时又引用一项全局共享事件。分析前需要同时核对事件的身份、组件内部的逻辑和树间依赖，修改概率后还要能把保留原结构的文档交给其他团队复算。
 
-| 审核关注点 | 本轮实现 |
-|---|---|
-| 常见重要度 | 输出 FV/DIF、RAW、RRW、Birnbaum 与强制发生/不发生情景概率。对零分母输出状态，便于程序可靠读取。 |
-| 非单调模型 | 以带符号字面量表示素蕴含项。对 BDD 的两个余因子及其交集求项，去除被包含的项，以发现跨分支的最小故障条件。 |
-| 模型交换 | 解析 Open-PSA MEF 静态 XML 子集，对命名门、共享基础事件、固定概率、状态常量和投票门建立语义模型。支持按名称修改概率和重新导出。 |
-| 实际评审流程 | 在一份请求中复核不同结构和参数变更。列出预防事件后概率会降低、增加或不变，保留原模型与共同假设。 |
+MoonFaultGraph 导入 Open-PSA MEF 静态故障树，从原文档中选择顶事件，计算概率、重要度及有符号素蕴含项。评审者可以按名称调整基础事件的概率，导出保留结构的 XML，再用本工具或 SCRAM 分别检查两个顶事件。另有批量评审入口，以相同结果定义和概率口径比较供电方案。
 
-设基准概率为 Q、强制事件发生和不发生后的概率为 Q1 和 Q0。RAW 计算 Q1/Q，RRW 计算 Q/Q0，FV 采用 SCRAM 的 DIF 定义 p×Q1/Q。非单调模型中，Birnbaum 可能为负，应结合两个强制情景解释其方向。 [SCRAM 定义](https://github.com/rakhimov/scram/blob/develop/doc/theory.rst#importance-analysis)
+## 二、复审反馈落实
 
-## 运行案例
+| 复审反馈 | 0.5.0 的实现与证明 |
+| --- | --- |
+| 申报书稍长 | 报名表使用精简 Markdown，集中呈现用途、改动与可复验结果。 [报名版](proposal-summary.md) |
+| MEF 只覆盖单棵平面静态树 | 同一文档支持多棵 `define-fault-tree`、嵌套 `define-component` 和 `model-data`。导出时保留完整文档，往返脚本重新选择两棵树的顶事件。 |
+| 缺少异或等静态门 | 支持二元 XOR 和多输入 NAND、NOR，继续支持 AND、OR、NOT、`atleast`、事件直连和布尔常量。导出保留原门标签。 |
+| 缺少组件层级和限定名引用 | 支持公开短名、当前容器的相对路径和完整限定名。角色声明可继承或覆盖，同名私有事件以不同路径表示。 |
+| 提交往返验证 | 比较原文档与导出的 XML 结构、角色、门和引用。分别对两个顶事件检查概率、有符号素蕴含项和有限重要度。 [验证说明](VALIDATION.md) |
+
+## 三、导入、分析与导出的实现
+
+导入分两步。先按故障树和组件路径登记定义、角色及公开名，再绑定公式中的引用。解析时先查当前容器下的相对路径。未命中时，短名查公开定义，点分名称查完整路径。私有事件可以通过明确的限定路径引用。已解析的重复引用使用同一布尔变量，不同组件的私有同名事件各自建模。引用类型不符、循环、重名、缺少顶事件选择等情况会返回错误。 [MEF 代码](../mef) · [Open-PSA 静态故障树规范](https://open-psa.github.io/mef/mef/fault_tree_layer.html)
+
+MoonBit 将逻辑编译为约简有序二元决策图（BDD），在各事件给定独立固定概率时逐节点计算顶事件。XOR、NAND 和 NOR 复用布尔运算编译，保留逻辑上的非单调关系。素蕴含项表示足以触发顶事件且不能再去掉条件的最小组合，可同时包含某个事件发生和未发生。强制一个事件发生与未发生得到 Q₁ 和 Q₀，可计算 Birnbaum、FV/DIF、RAW、RRW，以及事件预防后的绝对概率变化。 [BDD 源码](../bdd.mbt) · [素蕴含项源码](../prime.mbt) · [重要度源码](../importance.mbt)
+
+导出根据基础事件的声明路径查找概率，因此覆盖 `PlantA.Power` 不会误改 `PlantA.Pump.Power` 或 `PlantB.Power`。原有树、组件、角色和引用仍保留在导出的文档中。同一个导出文件可用不同 `top` 请求重新分析。XML 读写复用 Milky2018/xml，作用域解析、BDD 与风险计算由 MoonBit 完成。 [来源与许可证](../THIRD_PARTY.md)
+
+## 四、双树案例与计算结果
+
+示例包含 PlantA、PlantB 两棵树，PlantA 下有私有组件 Pump。两棵树合计定义三个私有 `Power`，其初始值为 0.10、0.40、0.30。全局公开事件 `Grid` 的概率为 0.30。PlantA 的顶事件使用相对名 `Pump.Interlock`，PlantB 的顶事件使用绝对限定名 `PlantA.Power` 和 `PlantA.Pump.Power`。 [案例 XML](../examples/scoped-power.xml)
+
+PlantA 的组件 NAND 门概率为 `1−0.40×0.30=0.88`。顶事件使用 XOR，代入 PlantA.Power 的取值 `p` 后概率为 `p×(1−0.88)+(1−p)×0.88`。PlantB 的顶事件为三个独立事件的 NOR，概率为 `(1−0.30)×(1−p)×(1−0.40)`。假定的概率只用于示例演算。
+
+| 顶事件 | 覆盖前 | 仅将 PlantA.Power 改为 0.25 后重导入 | 素蕴含项数量 |
+| --- | ---: | ---: | ---: |
+| `PlantA.Top` | 0.804 | 0.690 | 3 |
+| `PlantB.Top` | 0.378 | 0.315 | 1 |
+
+第二棵树的结果随之变化，证明它确实绑定了第一棵树的事件。三个同名事件在导出 XML 中仍各自对应一个定义，其他概率保持案例设定。概率方向由示例中的 XOR 和 NOR 逻辑决定。 [案例与计算复现](VALIDATION.md)
+
+## 五、验收与复现方式
+
+安装 MoonBit、Node.js 22 与 Python 3 后，从仓库根目录运行。工作目录中生成 JSON 报告和临时验证产物。
 
 ```sh
 moon update
-moon run cmd/main --target js -- examples/power-design-review.json
-moon run cmd/main --target js -- examples/mode-switch-review.json
+moon test --target js --deny-warn
+moon run cmd/main --target js -- examples/scoped-power-plant-a.json
+moon run cmd/main --target js -- examples/scoped-power-plant-b.json
+python scripts/verify.py
 ```
 
-示例把服务中断概率目标设为 0.09。共用电源基准为 0.154，改善共用电源后为 0.0788，独立馈电模型为 0.1036。两个备选方案分别降低 0.0752 和 0.0504，只有前者达到示例目标。该排序取决于示例的输入概率，实际评审还要核对故障定义、分析周期、概率来源和实施成本。 [本轮可下载报告](https://github.com/btlqql/moon-faultgraph/releases/tag/v0.4.1)
+Windows 本地的 MoonBit 测试在 JavaScript、Wasm 和 Wasm GC 各通过 18 项。新测例覆盖 XOR/NAND/NOR 原标签往返、跨树循环、同名与错误路径、类型检查、XML 转义及资源上限。独立真值表脚本检查 64 组共享变量模型，其中 40 组也用于最小割集、区间及修复回归。原有供电评审样例保留，仍可对比 0.1540、0.0788 和 0.1036。 [自动验证说明](VALIDATION.md) · [旧评审请求](../examples/power-design-review.json)
 
-非单调切换模型算得顶事件概率 0.086，同时列出三个最小条件，含与模式无关的两路均失效。若强制替代模式不发生，概率会上升至 0.100。报告保留这种方向差异，便于评审者核对哪些干预值得继续调查。
+SCRAM 对照使用固定版本 0.16.2。脚本对比原 XML 和导出 XML 的结构，并针对每个顶事件逐项检查概率、有符号素蕴含项和 SCRAM 为该顶事件列出的有限 DIF、RAW、RRW。可重复生成 `_build/scram-comparison.json`，零分母状态由项目单测检查。 [对照脚本](../scripts/verify_scram.py) · [SCRAM 对照附件](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
 
-## 验证与边界
+## 六、适用边界与交付入口
 
-独立脚本用 64 组真值表核对顶事件概率、三种重要度和完整有符号项，其中 40 组额外验证正割集、区间和修复。MEF 测试覆盖共享事件、模型往返、投票门、非法引用、循环和外部 DTD 拒绝。SCRAM 互操作对照由公共 CI 从固定版本构建并运行，记录见验证入口。 [验证记录](VALIDATION.md)
+互操作范围为静态 MEF 子集，支持固定概率以及共享或独立的基础事件。现阶段的输入边界包括动态门、参数概率表达式、概率分布、共因失效组和外部引用。程序按文档限制 XML 深度、组件、定义、事件与编译门数量。实际评审需依据设备数据和任务周期校准模型。 [当前支持范围](../README.md) · [技术验证及限制](VALIDATION.md)
 
-项目复用 MoonBit XML 解析库，风险计算、MEF 语义处理和方案比较均由 MoonBit 完成。每个模型限于平面静态故障树、公开事件、独立基础变量及固定概率。公开仓库保留本期增量、可运行示例、测试和来源说明。 [官方十一月验收标准](https://github.com/moonbitlang/Hackathon2026/blob/2ca8a6440a5d6d1881104538852bf5f05c90c68e/src/App.tsx#L204-L214) · [生态对照](ECOSYSTEM.md) · [来源与许可](../THIRD_PARTY.md)
+提交材料包含版本源代码、运行命令、两树输入、结构往返检查与数值对照。GitHub 标签记录和 MoonCakes 包对应申报版本。 [GitHub 版本](https://github.com/btlqql/moon-faultgraph/releases/tag/v0.5.0) · [版本提交历史](https://github.com/btlqql/moon-faultgraph/commits/v0.5.0/) · [MoonCakes 模块入口](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.5.0)

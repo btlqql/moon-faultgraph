@@ -1,14 +1,40 @@
-# 0.4.1 验证记录
+# MoonFaultGraph 0.5.0 验证说明
 
-`python scripts/verify.py` 以 Python 真值表枚举概率、强制事件概率及所有三值字面量组合，独立核对 64 组共享变量模型的概率、FV/DIF、RAW、RRW、Birnbaum 和素蕴含项。其中 40 组额外核对旧有的最小割集、单调区间和修复效果。
+## 多树 MEF 的往返验收
 
-| 例子 | 本地输出 |
-|---|---:|
-| 共用上游供电 | 0.154 |
-| 共用电源概率降为 0.02 | 0.0788 |
-| 独立馈电 | 0.1036 |
-| 非单调模式切换 | 0.086 |
+`examples/scoped-power.xml` 包含两棵故障树、一个组件、三个同名私有事件和一个全局公开事件。两棵树通过相对引用和完整限定名使用组件或其他树中的事件。验证脚本把 `PlantA.Power` 的概率从 0.10 覆盖为 0.25 后导出，逐节点比较新 XML 的树、组件、角色、门、引用与事件声明。随后重导入同一个导出文件并分别计算两个顶事件。 [案例 XML](../examples/scoped-power.xml) · [对照脚本](../scripts/verify_scram.py)
 
-批量评审验证排序、较基准的绝对与相对变化、阈值判定和独立方案之间的参数隔离。非单调模式案例验证强制替代模式不发生时，顶事件概率从 0.086 升至 0.100。CLI 还覆盖导出后重新导入、同名事件复用、已有文件保护，以及非法概率、外部 DTD、引用环和类型错误的拒绝。
+| 顶事件 | 原模型概率 | 导出后重导入概率 | 带符号素蕴含项 |
+| --- | ---: | ---: | ---: |
+| `PlantA.Top` | 0.804 | 0.690 | 3 |
+| `PlantB.Top` | 0.378 | 0.315 | 1 |
 
-SCRAM 对照由 `scripts/verify_scram.py` 驱动，以固定 SCRAM 0.16.2 源码构建参考程序，比较顶事件概率、有限重要度、带符号项及导出后的模型。范围包含仓库模型与 SCRAM 上游样例。比率零分母状态由本项目独立检验。 [公共 CI 与对照产物](https://github.com/btlqql/moon-faultgraph/actions)
+手算中，PlantA 的联锁门为 `NAND(Pump.Power, Grid)`，概率为 `1−0.4×0.3=0.88`。它与 `PlantA.Power` 组成 XOR，输入为 0.10 时结果为 0.804，改为 0.25 后为 0.690。PlantB 的顶事件为三个独立事件的 NOR，结果由 `(1−0.3)×(1−0.10)×(1−0.4)` 变为 `(1−0.3)×(1−0.25)×(1−0.4)`。
+
+## 从源码运行
+
+以下命令在仓库根目录执行。命令行示例需要 Node.js 22。独立校验需要 Python 3。
+
+```sh
+moon update
+moon test --target js --deny-warn
+moon run cmd/main --target js -- examples/scoped-power-plant-a.json
+moon run cmd/main --target js -- examples/scoped-power-plant-b.json
+python scripts/verify.py
+```
+
+独立真值表脚本覆盖 64 组共享变量模型，检查顶事件概率、强制事件概率、重要度和有符号素蕴含项。其中 40 组还核对正割集、单调区间和修复效果。旧 CLI 回归覆盖三种供电方案、模式切换、文件覆盖保护与非法输入。MoonBit 单测另检验顶事件选择、类型错误、跨树循环、重名、结构往返、XML 转义及资源上限。 [真值表验证脚本](../scripts/verify.py) · [MEF 单测](../mef)
+
+## SCRAM 独立对照
+
+参考程序为 SCRAM 0.16.2，源码固定到 `9c9a75ca0c5c2fbb5b4a7d32e29fd25bf90f7bab`。在有 SCRAM 可执行文件和该提交源码的环境运行以下命令，将路径替换为本机实际位置。
+
+```sh
+python scripts/verify_scram.py --scram /path/to/scram --reference-model /path/to/scram-source/tests/input/core/ab_bc.xml
+```
+
+脚本依据 SCRAM 报告中的顶事件名，分别核对原文件和导出文件的顶事件概率及有符号素蕴含项，并对照 SCRAM 为相应顶事件列出的有限 DIF、RAW、RRW。跨树案例的结构比较独立于这些数值对照。命令成功后写入 `_build/scram-comparison.json`。分母为零的比率状态由 MoonFaultGraph 单测验证。 [SCRAM 固定版本](https://github.com/rakhimov/scram/tree/9c9a75ca0c5c2fbb5b4a7d32e29fd25bf90f7bab) · [CI 配置](../.github/workflows/ci.yml) · [对照附件入口](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
+
+## 范围与上限
+
+互操作覆盖固定概率、公开或限定名引用的静态 MEF 子集。每份输入最多 200 万编码单元、12,000 个 XML 元素，解析栈上限为 96 层。最多登记 1,024 个组件、1,024 个事件或门定义、128 个基础事件，并受 4,096 个编译门的上限约束。动态门、参数表达式、概率分布、共因组和外部引用不在当前范围内。 [MEF 实现](../mef)

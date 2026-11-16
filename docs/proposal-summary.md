@@ -1,16 +1,36 @@
-# MoonFaultGraph 一页项目说明
+# MoonFaultGraph 项目申报书
 
-**用 MoonBit 比较冗余供电方案 · 0.4.1**
+**0.5.0 · 面向供电与联锁评审的多树 MEF 互操作工具**
 
-面向系统设计人员的冗余供电评审。一次载入共用电源基准和备选方案，以同一个服务中断目标比较故障概率、相对基准的变化和达标情况，再查看各方案中预防事件的影响。报告记录概率口径，供评审复算。
+参赛账号 btlqql，核心实现语言 MoonBit，开源许可证 Apache-2.0。
 
-本轮对应初审补齐三项能力。重要度按 SCRAM 的 DIF、RAW、RRW 定义计算。有符号素蕴含项支持 NOT 和模式切换，能解释两条路径同时失效所形成的与模式无关的故障条件。共享事件使用同一基础变量，支持命名门、状态常量、固定概率及投票门。
+## 实际用途
 
-供电案例的基准概率是 0.154，改善共用电源后为 0.0788，独立馈电为 0.1036。在示例设定的 0.09 目标下，只有改善共用电源的方案达标。模式切换样例验证有符号素蕴含项与预防可能增加风险的情形。独立真值表及 SCRAM 对照覆盖核心分析和 MEF 往返。适用范围为平面静态故障树和独立基础事件。
+系统设计人员收到一份包含多个设备和联锁组件的故障树文档时，需要分清哪些故障是跨系统共享的，哪些只是同名。MoonFaultGraph 读入这类 Open-PSA MEF 模型，按指定顶事件计算概率、重要度与有符号素蕴含项，并导出调整参数后的原结构 XML，供团队复核。
+
+## 对应复审意见的修改
+
+| 审核关注点 | 0.5.0 交付 |
+| --- | --- |
+| 单棵平面树 | 同一 XML 导入多棵故障树和嵌套组件，按公开名或完整路径选择顶事件。 |
+| 缺少异或等静态门 | 导入、计算和导出 XOR、NAND、NOR，导出保留原门标签。 |
+| 缺少限定名与往返证明 | 支持公开短名、相对路径和完整限定名，并保留私有同名事件的独立身份。逐节点检查导出结构，对同一导出文件的两个顶事件重新分析。 |
+
+## 可复算的往返案例
+
+案例仅把 `PlantA.Power` 从 0.10 调至 0.25。XML 保留同名的 `PlantA.Pump.Power` 和 `PlantB.Power`。第二棵树直接引用变更事件，因此两棵树的结果都变化。
+
+| 顶事件 | 原模型概率 | 导出后重导入 | 有符号素蕴含项 |
+| --- | ---: | ---: | ---: |
+| `PlantA.Top` | 0.804 | 0.690 | 3 |
+| `PlantB.Top` | 0.378 | 0.315 | 1 |
+
+示例使用固定假设概率。工具支持静态故障树和独立基础变量。对照脚本用固定的 SCRAM 0.16.2 逐顶事件检查原模型和导出模型的概率、带符号项及有限重要度。 [模型输入](../examples/scoped-power.xml) · [验证说明](VALIDATION.md)
 
 ```sh
 moon update
-moon run cmd/main --target js -- examples/power-design-review.json
+moon run cmd/main --target js -- examples/scoped-power-plant-a.json
+moon run cmd/main --target js -- examples/scoped-power-plant-b.json
 ```
 
-[GitHub](https://github.com/btlqql/moon-faultgraph) · [MoonCakes 0.4.1](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.4.1) · [评审报告附件](https://github.com/btlqql/moon-faultgraph/releases/tag/v0.4.1) · [完整申报书](proposal.md) · [验证记录](VALIDATION.md)
+[GitHub 仓库](https://github.com/btlqql/moon-faultgraph) · [SCRAM 对照附件入口](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json) · [MoonCakes 版本入口](https://mooncakes.io/docs/btlqql/moon_faultgraph@0.5.0)
