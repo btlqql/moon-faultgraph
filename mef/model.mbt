@@ -161,9 +161,14 @@ fn Resolver::formula(
       }
       self.push(@core.Not(self.formula(node.children[0], context, depth + 1)))
     }
-    "and" | "or" | "atleast" => {
+    "and" | "or" | "atleast" | "xor" | "nand" | "nor" => {
       node.allow(if node.tag == "atleast" { ["min"] } else { [] })
-      if node.children.is_empty() || node.children.length() > 128 {
+      let operand_count = node.children.length()
+      let negate = node.tag == "nand" || node.tag == "nor"
+      if operand_count == 0 ||
+        operand_count > 128 ||
+        (negate && operand_count < 2) ||
+        (node.tag == "xor" && operand_count != 2) {
         raise InvalidModel("invalid operand count for " + node.tag)
       }
       let inputs : Array[Int32] = []
@@ -182,18 +187,27 @@ fn Resolver::formula(
           raise InvalidModel("invalid atleast threshold")
         }
         self.push(@core.Vote(k, inputs))
+      } else if node.tag == "xor" {
+        let any = self.push(@core.Or(inputs[0], inputs[1]))
+        let both = self.push(@core.And(inputs[0], inputs[1]))
+        let not_both = self.push(@core.Not(both))
+        self.push(@core.And(any, not_both))
       } else {
         let mut root = inputs[0]
         for i in 1..<inputs.length() {
           root = self.push(
-            if node.tag == "and" {
+            if node.tag == "and" || node.tag == "nand" {
               @core.And(root, inputs[i])
             } else {
               @core.Or(root, inputs[i])
             },
           )
         }
-        root
+        if negate {
+          self.push(@core.Not(root))
+        } else {
+          root
+        }
       }
     }
     _ => raise InvalidModel("unsupported MEF formula " + node.tag)
