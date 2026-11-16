@@ -1,10 +1,10 @@
 name = "btlqql/moon_faultgraph"
 
-version = "0.4.1"
+version = "0.5.0"
 
 license = "Apache-2.0"
 
-description = "Static Open-PSA fault trees, event importance, and signed prime implicants."
+description = "Hierarchical Open-PSA static fault tree exchange and risk analysis."
 
 repository = "https://github.com/btlqql/moon-faultgraph"
 
