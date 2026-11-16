@@ -97,3 +97,81 @@ test "MEF validates private paths, duplicate names, cycles and top selection" {
     }
   }
 }
+
+///|
+test "MEF export escapes labels and root metadata without changing scoped names" {
+  let source = scoped_trees
+    .replace_all(
+      old="<opsa-mef>",
+      new="<opsa-mef name=\"A &amp; &quot;B&quot;&#10;C\">",
+    )
+    .replace_all(
+      old="<define-component name=\"Unit\">",
+      new="<define-component name=\"Unit\"><label>Valve &amp; &lt;relay&gt; &gt;</label>",
+    )
+    .replace_all(old="Plant.TrainB.Check", new="Plant&#46;TrainB&#46;Check")
+  let model = parse_static(source, top="Plant.Top")
+  let xml = model.to_xml()
+  assert_true(xml.contains("A &amp; &quot;B&quot;"))
+  assert_true(xml.contains("Valve &amp; &lt;relay&gt; &gt;"))
+  assert_true(xml.contains("Plant.TrainB.Check"))
+  let round_trip = parse_static(xml, top="Plant.Top")
+  assert_eq(round_trip.events, model.events)
+  assert_eq(round_trip.to_xml(), xml)
+}
+
+///|
+test "MEF resource limits apply across scopes and deeply nested components" {
+  let source = StringBuilder()
+  source.write_string("<opsa-mef>")
+  for tree in 0..<2 {
+    source.write_string("<define-fault-tree name=\"Tree\{tree}\">")
+    source.write_string(
+      "<define-gate name=\"Top\{tree}\"><basic-event name=\"E0\"/></define-gate>",
+    )
+    for event in 0..<(64 + tree) {
+      source.write_string(
+        "<define-basic-event name=\"E\{event}\" role=\"private\"><float value=\"0.1\"/></define-basic-event>",
+      )
+    }
+    source.write_string("</define-fault-tree>")
+  }
+  source.write_string("</opsa-mef>")
+  try parse_static(source.to_string(), top="Top0") catch {
+    InvalidModel(message) =>
+      assert_eq(message, "static model exceeds 128 basic events")
+    err => raise err
+  } noraise {
+    _ => fail("expected the document-wide basic event limit")
+  }
+
+  let nested = StringBuilder()
+  nested.write_string("<opsa-mef><define-fault-tree name=\"Tree\">")
+  for _ in 0..<100 {
+    nested.write_string("<define-component name=\"Nested\">")
+  }
+  for _ in 0..<100 {
+    nested.write_string("</define-component>")
+  }
+  nested.write_string("</define-fault-tree></opsa-mef>")
+  try parse_static(nested.to_string()) catch {
+    InvalidModel(message) => assert_eq(message, "MEF element or depth limit")
+    err => raise err
+  } noraise {
+    _ => fail("expected the MEF depth limit")
+  }
+
+  let wide = StringBuilder()
+  wide.write_string("<opsa-mef><define-fault-tree name=\"Tree\">")
+  for component in 0..<1025 {
+    wide.write_string("<define-component name=\"Unit\{component}\"/>")
+  }
+  wide.write_string("</define-fault-tree></opsa-mef>")
+  try parse_static(wide.to_string()) catch {
+    InvalidModel(message) =>
+      assert_eq(message, "static model exceeds 1024 components")
+    err => raise err
+  } noraise {
+    _ => fail("expected the MEF component limit")
+  }
+}

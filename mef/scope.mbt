@@ -44,6 +44,9 @@ fn ScopeIndex::register(
         if self.components.get(path) is Some(_) {
           raise InvalidModel("duplicate component " + path)
         }
+        if self.components.length() >= 1024 {
+          raise InvalidModel("static model exceeds 1024 components")
+        }
         self.components[path] = true
         self.register(definition, path, tree, is_private)
       }

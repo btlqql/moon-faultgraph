@@ -87,10 +87,11 @@ fn Resolver::resolve(
   let body = node.body()
   let index = match node.tag {
     "define-basic-event" => {
-      if body.length() != 1 ||
-        body[0].tag != "float" ||
-        self.events.length() >= 128 {
+      if body.length() != 1 || body[0].tag != "float" {
         raise InvalidModel("expected one fixed float probability for " + name)
+      }
+      if self.events.length() >= 128 {
+        raise InvalidModel("static model exceeds 128 basic events")
       }
       let p = scalar(body[0])
       if !(p >= 0.0 && p <= 1.0) {
