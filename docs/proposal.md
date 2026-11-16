@@ -62,7 +62,7 @@ python scripts/verify.py
 
 Windows 本地的 MoonBit 测试在 JavaScript、Wasm 和 Wasm GC 各通过 18 项。新测例覆盖 XOR/NAND/NOR 原标签往返、跨树循环、同名与错误路径、类型检查、XML 转义及资源上限。独立真值表脚本检查 64 组共享变量模型，其中 40 组也用于最小割集、区间及修复回归。原有供电评审样例保留，仍可对比 0.1540、0.0788 和 0.1036。 [自动验证说明](VALIDATION.md) · [旧评审请求](../examples/power-design-review.json)
 
-SCRAM 对照使用固定版本 0.16.2。脚本对比原 XML 和导出 XML 的结构，并针对每个顶事件逐项检查概率、有符号素蕴含项和 SCRAM 为该顶事件列出的有限 DIF、RAW、RRW。可重复生成 `_build/scram-comparison.json`，零分母状态由项目单测检查。 [对照脚本](../scripts/verify_scram.py) · [SCRAM 对照附件](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
+SCRAM 对照使用固定版本 0.16.2。脚本对比原 XML 和导出 XML 的结构，并逐顶事件核对概率和有符号素蕴含项。对纯 NOR 的 `PlantB.Top`，MoonFaultGraph 的强制发生与强制不发生结果由独立真值表核验。SCRAM 在该顶事件报告的部分重要度与强制状态口径有差异，报告保留两套数值。其余案例继续对照 SCRAM 报告中的有限 DIF、RAW、RRW。 [对照脚本](../scripts/verify_scram.py) · [SCRAM 对照附件](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
 
 ## 六、适用边界与交付入口
 

@@ -25,7 +25,7 @@
 | `PlantA.Top` | 0.804 | 0.690 | 3 |
 | `PlantB.Top` | 0.378 | 0.315 | 1 |
 
-示例使用固定假设概率。工具支持静态故障树和独立基础变量。对照脚本用固定的 SCRAM 0.16.2 逐顶事件检查原模型和导出模型的概率、带符号项及有限重要度。 [模型输入](../examples/scoped-power.xml) · [验证说明](VALIDATION.md)
+示例使用固定假设概率。工具支持静态故障树和独立基础变量。对照脚本用 SCRAM 0.16.2 逐顶事件核对原模型与导出模型的概率和带符号项。纯 NOR 的强制状态重要度另用独立真值表验证。 [模型输入](../examples/scoped-power.xml) · [验证说明](VALIDATION.md)
 
 ```sh
 moon update

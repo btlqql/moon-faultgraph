@@ -33,7 +33,7 @@ python scripts/verify.py
 python scripts/verify_scram.py --scram /path/to/scram --reference-model /path/to/scram-source/tests/input/core/ab_bc.xml
 ```
 
-脚本依据 SCRAM 报告中的顶事件名，分别核对原文件和导出文件的顶事件概率及有符号素蕴含项，并对照 SCRAM 为相应顶事件列出的有限 DIF、RAW、RRW。跨树案例的结构比较独立于这些数值对照。命令成功后写入 `_build/scram-comparison.json`。分母为零的比率状态由 MoonFaultGraph 单测验证。 [SCRAM 固定版本](https://github.com/rakhimov/scram/tree/9c9a75ca0c5c2fbb5b4a7d32e29fd25bf90f7bab) · [CI 配置](../.github/workflows/ci.yml) · [对照附件入口](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
+脚本按顶事件名核对原 XML 和导出 XML 的概率与有符号素蕴含项，同时验证导出结构和限定名。除纯 NOR 的 `PlantB.Top` 外，继续逐项核对 SCRAM 报告中的有限 DIF、RAW、RRW。纯 NOR 分别枚举变量状态，检验 MoonFaultGraph 的强制状态结果，并在报告中记录两个引擎的差异。命令生成 `_build/scram-comparison.json`。分母为零的比率状态由 MoonFaultGraph 单测验证。 [SCRAM 固定版本](https://github.com/rakhimov/scram/tree/9c9a75ca0c5c2fbb5b4a7d32e29fd25bf90f7bab) · [CI 配置](../.github/workflows/ci.yml) · [对照附件入口](https://github.com/btlqql/moon-faultgraph/releases/download/v0.5.0/scram-comparison.json)
 
 ## 范围与上限
 
