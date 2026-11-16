@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<opsa-mef name="ScopedPower">
+  <define-fault-tree name="PlantA">
+    <define-gate name="Top" role="private">
+      <xor>
+        <event name="Power"/>
+        <gate name="Pump.Interlock"/>
+      </xor>
+    </define-gate>
+    <define-basic-event name="Power" role="private"><float value="0.1"/></define-basic-event>
+    <define-component name="Pump" role="private">
+      <define-gate name="Interlock">
+        <label>Pump power interlock</label>
+        <nand>
+          <basic-event name="Power"/>
+          <basic-event name="Grid"/>
+        </nand>
+      </define-gate>
+      <define-basic-event name="Power"><float value="0.4"/></define-basic-event>
+    </define-component>
+  </define-fault-tree>
+  <define-fault-tree name="PlantB">
+    <define-gate name="Top" role="private">
+      <label>Plant B standby conditions</label>
+      <nor>
+        <basic-event name="Power"/>
+        <basic-event name="PlantA.Power"/>
+        <basic-event name="PlantA.Pump.Power"/>
+      </nor>
+    </define-gate>
+    <define-basic-event name="Power" role="private"><float value="0.3"/></define-basic-event>
+  </define-fault-tree>
+  <model-data>
+    <define-basic-event name="Grid"><float value="0.3"/></define-basic-event>
+  </model-data>
+</opsa-mef>

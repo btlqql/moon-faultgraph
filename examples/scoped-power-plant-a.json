@@ -1,0 +1,5 @@
+{
+  "mef": "scoped-power.xml",
+  "top": "PlantA.Top",
+  "prime_implicants": true
+}
