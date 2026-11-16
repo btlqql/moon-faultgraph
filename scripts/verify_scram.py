@@ -1,5 +1,6 @@
 """Compare the MoonBit CLI and SCRAM 0.16.2 on static MEF models."""
 import argparse
+import itertools
 import json
 import math
 import os
@@ -36,7 +37,7 @@ def scram_report(model, path):
                     "--output-path", str(path), str(model)], check=True, timeout=60)
     return ET.parse(path).getroot()
 
-def compare(report, reference):
+def compare_results(report, reference):
     top = report["top"]
     products, = [node for node in reference.findall("./results/sum-of-products") if node.get("name") == top]
     importance, = [node for node in reference.findall("./results/importance") if node.get("name") == top]
@@ -51,14 +52,19 @@ def compare(report, reference):
     observed = {frozenset(literal(item) for item in term) for term in products.findall("product")}
     expected = {frozenset((item["event"], item["occurs"]) for item in term) for term in report["prime_implicants"]}
     assert observed == expected, (top, observed, expected)
+    return importance.findall("basic-event")
+
+
+def compare(report, reference):
+    importance = compare_results(report, reference)
     event_metrics = {row["event"]: row for row in report["importance_factors"]}
     comparisons = 0
-    for item in importance.findall("basic-event"):
+    for item in importance:
         for own, other in [("fussell_vesely_dif", "DIF"), ("raw", "RAW"), ("rrw", "RRW")]:
             metric = event_metrics[item.attrib["name"]][own]
             # SCRAM 0.16.2 leaves ratios with a zero denominator at a default value.
             if metric["state"] == "finite":
-                assert math.isclose(float(item.attrib[other]), metric["value"], rel_tol=5e-6, abs_tol=1e-10), (top, own, item.attrib, metric)
+                assert math.isclose(float(item.attrib[other]), metric["value"], rel_tol=5e-6, abs_tol=1e-10), (report["top"], own, item.attrib, metric)
                 comparisons += 1
     assert comparisons > 0
     return comparisons
@@ -69,6 +75,47 @@ def xml_structure(node):
     if node.tag == "float":
         attributes["value"] = float(attributes["value"])
     return node.tag, attributes, (node.text or "").strip(), [xml_structure(child) for child in node]
+
+
+def verify_nor_importance(report, reference, plant_a_probability):
+    # The SCRAM 0.16.2 BDD report gives the complemented root's MIF
+    # the opposite sign here. Evaluate the specified NOR truth table directly.
+    probabilities = {"PlantA.Power": plant_a_probability, "PlantA.Pump.Power": 0.4, "PlantB.Power": 0.3}
+    states = [dict(zip(probabilities, bits)) for bits in itertools.product((False, True), repeat=len(probabilities))]
+
+    def probability(forced=None, occurs=None):
+        return math.fsum(
+            math.prod(p if state[event] else 1.0 - p for event, p in probabilities.items() if event != forced)
+            for state in states
+            if (forced is None or state[forced] == occurs) and not any(state.values())
+        )
+
+    baseline = probability()
+    assert math.isclose(report["probability"], baseline, rel_tol=1e-12), report
+    scram_rows = {item.attrib["name"]: item.attrib for item in compare_results(report, reference)}
+    assert scram_rows.keys() == probabilities.keys(), scram_rows
+    moon_rows = {row["event"]: row for row in report["importance_factors"]}
+    comparisons = 0
+    rows = []
+    for event, p in probabilities.items():
+        q1 = probability(event, True)
+        q0 = probability(event, False)
+        expected = {"forced_failed": q1, "forced_working": q0, "birnbaum": q1 - q0,
+                    "fussell_vesely_dif": p * q1 / baseline, "raw": q1 / baseline, "rrw": baseline / q0}
+        row = moon_rows[event]
+        observed = {}
+        for name, value in expected.items():
+            actual = row[name]
+            if isinstance(actual, dict):
+                assert actual["state"] == "finite", (event, name, actual)
+                actual = actual["value"]
+            assert math.isclose(value, actual, rel_tol=1e-12, abs_tol=1e-14), (event, name, value, actual)
+            observed[name] = actual
+            comparisons += 1
+        scram = {name: float(scram_rows[event][display]) for name, display in
+                 [("birnbaum", "MIF"), ("fussell_vesely_dif", "DIF"), ("raw", "RAW"), ("rrw", "RRW")]}
+        rows.append({"event": event, "truth_table": expected, "moon": observed, "scram": scram})
+    return comparisons, rows
 
 
 def verify_scoped(temporary):
@@ -102,10 +149,21 @@ def verify_scoped(temporary):
         if top == "PlantA.Top":
             assert updated["probability"] == reimported["probability"]
             assert updated["importance_factors"] == reimported["importance_factors"]
-        metrics = compare(original, scram_source) + compare(reimported, scram_export)
-        scoped_records.append({"model": source.name, "top": top, "baseline": original["probability"],
-                               "export_probability": reimported["probability"],
-                               "terms": len(original["prime_implicants"]), "finite_importance_checks": metrics})
+        record = {"model": source.name, "top": top, "baseline": original["probability"],
+                  "export_probability": reimported["probability"], "terms": len(original["prime_implicants"])}
+        if top == "PlantB.Top":
+            original_checks, original_values = verify_nor_importance(original, scram_source, 0.1)
+            export_checks, export_values = verify_nor_importance(reimported, scram_export, 0.25)
+            record["finite_importance_checks"] = 0
+            record["truth_table_importance_checks"] = original_checks + export_checks
+            record["scram_importance_difference"] = {
+                "detail": "SCRAM 0.16.2 BDD MIF has the opposite sign for this complemented top.",
+                "original": original_values,
+                "export": export_values,
+            }
+        else:
+            record["finite_importance_checks"] = compare(original, scram_source) + compare(reimported, scram_export)
+        scoped_records.append(record)
     return scoped_records
 
 
