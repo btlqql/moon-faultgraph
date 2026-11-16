@@ -5,16 +5,18 @@ pub struct StaticModel {
   probabilities : Array[Double]
   top : String
   priv document : String
+  priv event_paths : Array[String]
 }
 
 ///|
 priv struct Resolver {
-  definitions : Map[String, Element]
+  scopes : ScopeIndex
   indices : Map[String, Int32]
   active : Map[String, Bool]
   referenced : Map[String, Bool]
   gates : Array[@core.Gate]
   events : Array[String]
+  event_paths : Array[String]
   probabilities : Array[Double]
 }
 
@@ -77,9 +79,10 @@ fn Resolver::resolve(
   if self.active.get(name) is Some(true) {
     raise InvalidModel("gate cycle at " + name)
   }
-  guard self.definitions.get(name) is Some(node) else {
+  guard self.scopes.definitions.get(name) is Some(definition) else {
     raise InvalidModel("unknown event " + name)
   }
+  let node = definition.node
   self.active[name] = true
   let body = node.body()
   let index = match node.tag {
@@ -94,7 +97,8 @@ fn Resolver::resolve(
         raise InvalidModel("probability outside [0,1] for " + name)
       }
       let index = self.push(@core.Event(self.events.length()))
-      self.events.push(name)
+      self.events.push(definition.id)
+      self.event_paths.push(name)
       self.probabilities.push(p)
       index
     }
@@ -111,7 +115,7 @@ fn Resolver::resolve(
       if body.length() != 1 {
         raise InvalidModel("expected one formula for " + name)
       }
-      self.formula(body[0], depth + 1)
+      self.formula(body[0], definition, depth + 1)
     }
   }
   self.active[name] = false
@@ -123,6 +127,7 @@ fn Resolver::resolve(
 fn Resolver::formula(
   self : Resolver,
   node : Element,
+  context : Definition,
   depth : Int32,
 ) -> Int32 raise {
   if depth > 128 {
@@ -132,22 +137,21 @@ fn Resolver::formula(
     "gate" | "basic-event" | "house-event" | "event" => {
       node.allow(if node.tag == "event" { ["name", "type"] } else { ["name"] })
       node.leaf()
-      let name = node.name()
-      guard self.definitions.get(name) is Some(definition) else {
-        raise InvalidModel("unknown event " + name)
-      }
+      let name = node.reference()
       let kind = if node.tag == "event" {
         node.attr("type")
       } else {
         Some(node.tag)
       }
-      if kind is Some(kind) && "define-" + kind != definition.tag {
-        raise InvalidModel("reference type mismatch for " + name)
+      let kind = kind.map(fn(kind) { "define-" + kind })
+      guard self.scopes.lookup(context.scope, name, kind) is Some(path) else {
+        raise InvalidModel("unresolved event " + name + " in " + context.scope)
       }
-      if definition.tag == "define-gate" {
-        self.referenced[name] = true
+      let target = self.scopes.definitions[path]
+      if target.node.tag == "define-gate" && target.tree == context.tree {
+        self.referenced[path] = true
       }
-      self.resolve(name, depth + 1)
+      self.resolve(path, depth + 1)
     }
     "constant" => self.constant(boolean(node))
     "not" => {
@@ -155,7 +159,7 @@ fn Resolver::formula(
       if node.children.length() != 1 {
         raise InvalidModel("not requires one operand")
       }
-      self.push(@core.Not(self.formula(node.children[0], depth + 1)))
+      self.push(@core.Not(self.formula(node.children[0], context, depth + 1)))
     }
     "and" | "or" | "atleast" => {
       node.allow(if node.tag == "atleast" { ["min"] } else { [] })
@@ -164,7 +168,7 @@ fn Resolver::formula(
       }
       let inputs : Array[Int32] = []
       for child in node.children {
-        inputs.push(self.formula(child, depth + 1))
+        inputs.push(self.formula(child, context, depth + 1))
       }
       if node.tag == "atleast" {
         let count = node.required("min")
@@ -197,81 +201,46 @@ fn Resolver::formula(
 }
 
 ///|
-/// Parse one flat static tree plus optional model-data. Names are globally unique.
-/// If top is omitted, the model must have exactly one unreferenced named gate.
+/// Parse scoped static fault trees plus optional model-data.
+/// A top is selected by public name or full path. If omitted, exactly one
+/// top gate must exist across the document's trees.
 pub fn parse_static(source : String, top? : String) -> StaticModel raise {
   let document = read_tree(source)
   document.allow(["name"])
-  let definitions : Map[String, Element] = Map([])
-  let mut tree_seen = false
-  let mut data_seen = false
-  for container in document.body() {
-    match container.tag {
-      "define-fault-tree" if !tree_seen => {
-        container.allow(["name"])
-        ignore(container.name())
-        tree_seen = true
-      }
-      "model-data" if !data_seen => {
-        container.allow([])
-        data_seen = true
-      }
-      _ =>
-        raise InvalidModel(
-          "unsupported or duplicate container " + container.tag,
-        )
-    }
-    for definition in container.body() {
-      if definition.tag != "define-basic-event" &&
-        definition.tag != "define-house-event" &&
-        !(definition.tag == "define-gate" &&
-        container.tag == "define-fault-tree") {
-        raise InvalidModel("unsupported definition " + definition.tag)
-      }
-      definition.allow(["name", "role"])
-      if definition.attr("role") is Some(role) && role != "public" {
-        raise InvalidModel("only public definitions are supported")
-      }
-      let name = definition.name()
-      if definitions.get(name) is Some(_) {
-        raise InvalidModel("duplicate name " + name)
-      }
-      definitions[name] = definition
-    }
-  }
-  if !tree_seen || definitions.length() > 1024 {
-    raise InvalidModel("expected one bounded static tree")
-  }
+  let scopes = index_scopes(document)
   let resolver : Resolver = {
-    definitions,
+    scopes,
     indices: Map([]),
     active: Map([]),
     referenced: Map([]),
     gates: [],
     events: [],
+    event_paths: [],
     probabilities: [],
   }
-  for name, _ in definitions {
+  for name, _ in scopes.definitions {
     ignore(resolver.resolve(name, 0))
   }
-  let candidates : Array[String] = []
-  for name, definition in definitions {
-    if definition.tag == "define-gate" && resolver.referenced.get(name) is None {
-      candidates.push(name)
-    }
-  }
   let selected = match top {
-    Some(name) => name
+    Some(name) => {
+      guard scopes.lookup("", name, Some("define-gate")) is Some(path) else {
+        raise InvalidModel("unknown top gate " + name)
+      }
+      path
+    }
     None => {
+      let candidates : Array[String] = []
+      for name, definition in scopes.definitions {
+        if definition.node.tag == "define-gate" &&
+          resolver.referenced.get(name) is None {
+          candidates.push(name)
+        }
+      }
       if candidates.length() != 1 {
         raise InvalidModel("select a top gate explicitly")
       }
       candidates[0]
     }
-  }
-  guard definitions.get(selected) is Some(definition) &&
-    definition.tag == "define-gate" else {
-    raise InvalidModel("unknown top gate " + selected)
   }
   if resolver.events.is_empty() {
     raise InvalidModel("at least one basic event is required")
@@ -281,9 +250,24 @@ pub fn parse_static(source : String, top? : String) -> StaticModel raise {
     graph: @core.compile(resolver.gates, resolver.events.length()),
     events: resolver.events,
     probabilities: resolver.probabilities,
-    top: selected,
+    top: scopes.definitions[selected].id,
     document: source,
+    event_paths: resolver.event_paths,
   }
+}
+
+///|
+/// Resolve a public basic-event name or a fully qualified declaration path.
+pub fn StaticModel::basic_event_index(
+  self : StaticModel,
+  name : String,
+) -> Int32? {
+  for index, id in self.events {
+    if id == name || self.event_paths[index] == name {
+      return Some(index)
+    }
+  }
+  None
 }
 
 ///|
@@ -299,9 +283,9 @@ pub fn StaticModel::to_xml(
   ignore(self.graph.probability(p))
   let values = Map([])
   for i in 0..<self.events.length() {
-    values[self.events[i]] = p[i]
+    values[self.event_paths[i]] = p[i]
   }
   let writer = @xml.Writer::new()
-  write_tree(read_tree(self.document), writer, values)
+  write_tree(read_tree(self.document), writer, values, "")
   writer.to_string()
 }

@@ -163,7 +163,7 @@ fn run_design_review(review : Json, request_path : String) -> Json raise {
     top?,
   )
   let baseline_probabilities = with_overrides(
-    baseline_model.events,
+    baseline_model,
     baseline_model.probabilities,
     baseline_fields.get("probability_overrides"),
   )
@@ -204,7 +204,7 @@ fn run_design_review(review : Json, request_path : String) -> Json raise {
         (baseline.model_path, baseline.model, baseline.probabilities)
       }
     }
-    let probabilities = with_overrides(model.events, initial, overrides)
+    let probabilities = with_overrides(model, initial, overrides)
     scenarios.push({
       name,
       model_path,

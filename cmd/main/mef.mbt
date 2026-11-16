@@ -75,30 +75,29 @@ fn requested_top(fields : Map[String, Json]) -> String? raise {
 
 ///|
 fn with_overrides(
-  events : Array[String],
+  model : @mef.StaticModel,
   probabilities : Array[Double],
   overrides : Json?,
 ) -> Array[Double] raise {
   let p = probabilities.copy()
   match overrides {
-    Some(Object(overrides)) =>
+    Some(Object(overrides)) => {
+      let changed : Map[Int32, Bool] = Map([])
       for name, value in overrides {
-        let mut event = -1
-        for i in 0..<events.length() {
-          if events[i] == name {
-            event = i
-            break
-          }
-        }
-        if event == -1 {
+        guard model.basic_event_index(name) is Some(event) else {
           fail("unknown basic event " + name)
         }
+        if changed.get(event) is Some(_) {
+          fail("duplicate basic event override " + name)
+        }
+        changed[event] = true
         let probability = num(value)
         if probability < 0.0 || probability > 1.0 {
           fail("probability outside [0,1] for " + name)
         }
         p[event] = probability
       }
+    }
     None => ()
     _ => fail("probability_overrides must be an object")
   }
@@ -118,7 +117,7 @@ fn run_mef(
     top?,
   )
   let p = with_overrides(
-    model.events,
+    model,
     model.probabilities,
     fields.get("probability_overrides"),
   )

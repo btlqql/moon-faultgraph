@@ -105,14 +105,48 @@ fn Element::allow(self : Element, keys : Array[String]) -> Unit raise MefError {
 ///|
 fn Element::name(self : Element) -> String raise MefError {
   let value = self.required("name")
-  let chars = value.to_array()
-  if chars.is_empty() ||
-    chars.length() > 128 ||
-    !ascii_letter(chars[0]) ||
-    !chars.all(fn(c) {
-      ascii_letter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-'
-    }) {
+  if !valid_name(value, qualified=false) {
     raise InvalidModel("unsupported MEF name " + value)
+  }
+  value
+}
+
+///|
+fn valid_name(value : String, qualified~ : Bool) -> Bool {
+  let mut segment_length = 0
+  for c in value {
+    if c == '.' && qualified && segment_length > 0 {
+      segment_length = 0
+    } else if segment_length == 0 {
+      if !ascii_letter(c) {
+        return false
+      }
+      segment_length = 1
+    } else {
+      if segment_length >= 128 ||
+        !(ascii_letter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+        return false
+      }
+      segment_length += 1
+    }
+  }
+  segment_length > 0
+}
+
+///|
+fn qualified_name(scope : String, name : String) -> String {
+  if scope.is_empty() {
+    name
+  } else {
+    scope + "." + name
+  }
+}
+
+///|
+fn Element::reference(self : Element) -> String raise MefError {
+  let value = self.required("name")
+  if !valid_name(value, qualified=true) {
+    raise InvalidModel("invalid MEF reference " + value)
   }
   value
 }
@@ -152,16 +186,17 @@ fn write_tree(
   node : Element,
   writer : @xml.Writer,
   values : Map[String, Double],
+  scope : String,
 ) -> Unit raise {
   if node.tag == "define-basic-event" {
-    let name = node.required("name")
+    let name = qualified_name(scope, node.name())
     guard values.get(name) is Some(value) else {
       raise InvalidModel("unknown event " + name)
     }
     writer.start_element(node.tag, node.attrs)
     for label in node.children {
       if label.tag == "label" {
-        write_tree(label, writer, values)
+        write_tree(label, writer, values, scope)
       }
     }
     writer.empty_element("float", [("value", Json(value).stringify())])
@@ -169,13 +204,19 @@ fn write_tree(
   } else if node.children.is_empty() && node.text.to_string().is_empty() {
     writer.empty_element(node.tag, node.attrs)
   } else {
+    let child_scope = if node.tag == "define-fault-tree" ||
+      node.tag == "define-component" {
+      qualified_name(scope, node.name())
+    } else {
+      scope
+    }
     writer.start_element(node.tag, node.attrs)
     let label = node.text.to_string()
     if !label.is_empty() {
       writer.text(label)
     }
     for child in node.children {
-      write_tree(child, writer, values)
+      write_tree(child, writer, values, child_scope)
     }
     writer.end_element(node.tag)
   }

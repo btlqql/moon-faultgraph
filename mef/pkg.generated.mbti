@@ -21,6 +21,7 @@ pub struct StaticModel {
   top : String
   // private fields
 }
+pub fn StaticModel::basic_event_index(Self, String) -> Int?
 pub fn StaticModel::to_xml(Self, probabilities? : Array[Double]) -> String raise
 
 // Type aliases
